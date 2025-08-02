@@ -23,7 +23,6 @@ jobs:
       
       - name: Build project
         run: npm run build
-        continue-on-error: true
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
