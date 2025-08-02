@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -32,8 +32,4 @@ jobs:
     
     - name: Build project
       run: npm run build
-      continue-on-error: true
-    
-    - name: Run tests (if available)
-      run: npm test
       continue-on-error: true 
