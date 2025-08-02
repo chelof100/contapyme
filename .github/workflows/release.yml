@@ -1,0 +1,60 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build project
+        run: npm run build
+      
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 Nuevas características en esta versión
+            
+            ### ✅ Mejoras implementadas:
+            - Sistema de facturación automatizada
+            - Gestión avanzada de stock
+            - Integración con Mercado Pago
+            - Dashboard de monitoreo en tiempo real
+            
+            ### 🛠️ Tecnologías utilizadas:
+            - React 18 + TypeScript
+            - Supabase (PostgreSQL)
+            - Tailwind CSS + shadcn/ui
+            - Vite para build optimizado
+            
+            ### 📦 Instalación:
+            ```bash
+            git clone https://github.com/chelof100/contapyme.git
+            cd contapyme
+            npm install
+            npm run dev
+            ```
+            
+            ### 📚 Documentación:
+            Consulta la carpeta `docs/` para guías detalladas de instalación y configuración. 

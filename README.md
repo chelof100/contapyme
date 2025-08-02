@@ -70,7 +70,7 @@
 
 ### **1. Clonar el Repositorio**
 ```bash
-git clone https://github.com/tu-usuario/contapyme.git
+git clone https://github.com/chelof100/contapyme.git
 cd contapyme
 ```
 
@@ -181,7 +181,7 @@ node scripts/verify.js
 2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
 3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
 4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
+5. Abrir un Pull Request en [https://github.com/chelof100/contapyme](https://github.com/chelof100/contapyme)
 
 ## 📄 **Licencia**
 
@@ -197,7 +197,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 ## 📞 **Soporte**
 
 - 📧 **Email:** soporte@contapyme.com
-- 🐛 **Issues:** [GitHub Issues](https://github.com/tu-usuario/contapyme/issues)
+- 🐛 **Issues:** [GitHub Issues](https://github.com/chelof100/contapyme/issues)
 - 📖 **Documentación:** [docs/](docs/)
 
 ---

@@ -30,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tu-usuario/contapyme.git"
+    "url": "https://github.com/chelof100/contapyme.git"
   },
   "bugs": {
-    "url": "https://github.com/tu-usuario/contapyme/issues"
+    "url": "https://github.com/chelof100/contapyme/issues"
   },
-  "homepage": "https://github.com/tu-usuario/contapyme#readme",
+  "homepage": "https://github.com/chelof100/contapyme#readme",
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
