@@ -10,12 +10,14 @@ Sistema completo de contabilidad para pequeñas y medianas empresas argentinas, 
 - **Reportes Financieros:** Análisis y métricas
 - **Integración AFIP:** Validación automática de CUIT
 - **Dashboard Interactivo:** Monitoreo en tiempo real
+- **Automatizaciones n8n:** Procesos automáticos de negocio
 
 ## 🛠️ Tecnologías
 
 - **Frontend:** React 18, TypeScript, Vite
 - **UI:** Tailwind CSS, Radix UI, Shadcn/ui
 - **Backend:** Supabase (PostgreSQL, Auth, Real-time)
+- **Automatización:** n8n (opcional)
 - **Deployment:** GitHub Pages
 - **CI/CD:** GitHub Actions
 
@@ -37,13 +39,146 @@ npm install
 cp config/env.example .env.local
 ```
 
-Edita `.env.local` con tus credenciales de Supabase:
+Edita `.env.local` con tus credenciales:
 ```env
-VITE_SUPABASE_URL=tu_url_de_supabase
-VITE_SUPABASE_ANON_KEY=tu_clave_anonima
+# Supabase Configuration (OBLIGATORIO)
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_clave_anonima_de_supabase
+
+# n8n Configuration (OPCIONAL)
+VITE_N8N_BASE_URL=https://tu-instancia-n8n.com
+VITE_N8N_API_KEY=tu_api_key_de_n8n
+
+# Application Configuration
+VITE_APP_NAME=ContaPYME
+VITE_APP_VERSION=1.0.0
+VITE_APP_ENVIRONMENT=production
 ```
 
-### **4. Ejecutar en Desarrollo**
+### **4. Configurar Supabase (OBLIGATORIO)**
+
+#### **4.1. Crear Proyecto en Supabase**
+1. Ve a [supabase.com](https://supabase.com)
+2. Crea un nuevo proyecto
+3. Copia la **Project URL** y **anon public key**
+
+#### **4.2. Ejecutar Migraciones de Base de Datos**
+En tu proyecto Supabase, ve a **SQL Editor** y ejecuta las siguientes migraciones en orden:
+
+**Migración 1 - Esquema Base:**
+```sql
+-- Ejecutar: supabase/migrations/20250724140347_jade_trail.sql
+-- Contiene: Tablas principales, funciones y políticas de seguridad
+```
+
+**Migración 2 - Configuración Avanzada:**
+```sql
+-- Ejecutar: supabase/migrations/20250724142432_velvet_dew.sql
+-- Contiene: Configuraciones adicionales y triggers
+```
+
+**Migración 3 - Funciones de Negocio:**
+```sql
+-- Ejecutar: supabase/migrations/20250725134048_sweet_wind.sql
+-- Contiene: Funciones para cálculos y validaciones
+```
+
+**Migración 4 - CRM y ERP:**
+```sql
+-- Ejecutar: supabase/migrations/20250725142246_wispy_coast.sql
+-- Contiene: Tablas de CRM y gestión empresarial
+```
+
+**Migración 5 - Monitoreo:**
+```sql
+-- Ejecutar: supabase/migrations/20250728033535_wooden_grass.sql
+-- Contiene: Sistema de monitoreo y logs
+```
+
+**Migración 6 - Integración Final:**
+```sql
+-- Ejecutar: supabase/migrations/20250728120000_factura_productos_integration.sql
+-- Contiene: Integración completa entre módulos
+```
+
+#### **4.3. Tablas Requeridas**
+La aplicación necesita las siguientes tablas (se crean automáticamente con las migraciones):
+
+**Tablas Principales:**
+- `empresas` - Información de la empresa
+- `profiles` - Perfiles de usuarios
+- `facturas_emitidas` - Facturas emitidas
+- `facturas_recibidas` - Facturas recibidas
+- `ordenes_compra` - Órdenes de compra
+- `ordenes_recepcion` - Recepciones
+- `pagos` - Registro de pagos
+- `productos` - Catálogo de productos
+- `movimientos_stock` - Historial de stock
+- `alertas_stock` - Alertas de inventario
+
+**Tablas CRM:**
+- `clientes` - Gestión de clientes
+- `oportunidades` - Pipeline de ventas
+- `actividades` - Actividades comerciales
+- `campanas` - Campañas de marketing
+
+**Tablas ERP:**
+- `empleados` - Gestión de personal
+- `proyectos` - Gestión de proyectos
+- `finanzas` - Información financiera
+
+**Tablas de Configuración:**
+- `configuraciones` - Configuraciones del sistema
+- `logs_conectividad` - Logs de conectividad
+- `backups_configuracion` - Backups de configuración
+
+#### **4.4. Configurar Autenticación**
+1. En Supabase, ve a **Authentication → Settings**
+2. Habilita **Email auth**
+3. Configura **Site URL** con tu dominio
+4. Opcional: Configura **SMTP** para emails
+
+### **5. Configurar n8n (OPCIONAL)**
+
+n8n se usa para automatizaciones avanzadas. Las siguientes funciones están conectadas:
+
+#### **5.1. Funciones Conectadas a n8n:**
+
+**Facturación:**
+- `emitirFactura()` - Emisión automática de facturas
+- `recibirFactura()` - Procesamiento de facturas recibidas
+
+**Compras:**
+- `crearOrdenCompra()` - Creación automática de órdenes
+- `registrarPago()` - Registro automático de pagos
+
+**Stock:**
+- `registrarMovimientoStock()` - Actualización automática de stock
+- `enviarAlertaStock()` - Alertas automáticas de stock bajo
+
+**Recetas (Restaurantes):**
+- `crearReceta()` - Gestión de recetas
+- `venderReceta()` - Ventas de productos con recetas
+
+#### **5.2. Configurar n8n:**
+1. **Instalar n8n** (local o cloud)
+2. **Crear workflows** para cada función
+3. **Configurar webhooks** en n8n
+4. **Agregar credenciales** en `.env.local`
+
+#### **5.3. Workflows Recomendados:**
+```bash
+# Estructura de webhooks en n8n:
+/webhook/emitir-factura
+/webhook/recibir-factura
+/webhook/crear-orden-compra
+/webhook/registrar-pago
+/webhook/movimiento-stock
+/webhook/alerta-stock
+/webhook/health-check
+```
+
+### **6. Ejecutar en Desarrollo**
 ```bash
 npm run dev
 ```
@@ -106,23 +241,59 @@ src/
 - Monitoreo del sistema
 - Alertas automáticas
 
-## 🔧 Configuración de Supabase
+## 🔧 Configuración Avanzada
 
-### **1. Crear Proyecto en Supabase**
-1. Ve a [supabase.com](https://supabase.com)
-2. Crea un nuevo proyecto
-3. Copia la URL y la clave anónima
+### **Variables de Entorno Completas**
+```env
+# Supabase (OBLIGATORIO)
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_clave_anonima
 
-### **2. Configurar Base de Datos**
-```sql
--- Ejecutar en el SQL Editor de Supabase
--- Las migraciones se encuentran en supabase/migrations/
+# n8n (OPCIONAL)
+VITE_N8N_BASE_URL=https://tu-instancia-n8n.com
+VITE_N8N_API_KEY=tu_api_key
+
+# Aplicación
+VITE_APP_NAME=ContaPYME
+VITE_APP_VERSION=1.0.0
+VITE_APP_ENVIRONMENT=production
+
+# APIs Externas (OPCIONAL)
+VITE_MERCADO_PAGO_PUBLIC_KEY=tu_mercado_pago_key
+VITE_GOOGLE_DRIVE_CLIENT_ID=tu_google_drive_id
+VITE_WHATSAPP_API_TOKEN=tu_whatsapp_token
+
+# Desarrollo
+VITE_DEBUG_MODE=false
+VITE_LOG_LEVEL=info
 ```
 
-### **3. Configurar Autenticación**
-- Habilitar autenticación por email
-- Configurar políticas de seguridad
-- Crear usuarios de prueba
+### **Configuración de Supabase**
+```sql
+-- Verificar que las políticas RLS estén activas
+SELECT schemaname, tablename, rowsecurity 
+FROM pg_tables 
+WHERE schemaname = 'public';
+
+-- Verificar funciones
+SELECT routine_name, routine_type 
+FROM information_schema.routines 
+WHERE routine_schema = 'public';
+```
+
+### **Configuración de n8n**
+```javascript
+// Ejemplo de webhook en n8n
+{
+  "webhook": {
+    "path": "/emitir-factura",
+    "method": "POST",
+    "authentication": "headerAuth",
+    "headerName": "X-N8N-API-KEY",
+    "headerValue": "tu-api-key"
+  }
+}
+```
 
 ## 🚀 Despliegue
 
@@ -135,6 +306,11 @@ https://chelof100.github.io/contapyme/
 npm run build
 # Subir contenido de /dist a tu servidor
 ```
+
+### **Despliegue en Vercel/Netlify**
+1. Conecta tu repositorio
+2. Configura las variables de entorno
+3. Deploy automático
 
 ## 🤝 Contribuir
 
@@ -163,8 +339,27 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 - [ ] API pública
 - [ ] Multi-tenant
 
+## 🔍 Solución de Problemas
+
+### **Error: "Cannot connect to Supabase"**
+- Verificar URL y Anon Key en `.env.local`
+- Verificar que el proyecto Supabase esté activo
+- Verificar políticas RLS en Supabase
+
+### **Error: "Database migration failed"**
+- Ejecutar migraciones en orden
+- Verificar permisos en Supabase
+- Revisar logs de SQL Editor
+
+### **Error: "n8n connection failed"**
+- Verificar URL de n8n
+- Verificar API Key
+- Verificar que los workflows estén activos
+
+### **Error: "SelectItem must have a value prop"**
+- Ya resuelto en versiones recientes
+- Verificar que estés usando la última versión
+
 ---
 
 **ContaPYME** - Simplificando la contabilidad para Pymes argentinas 🚀
-
-<!-- Trigger deploy workflow -->
