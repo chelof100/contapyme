@@ -362,7 +362,7 @@ class ConfigurationService {
           .eq('id', profile.user!.id)
           .single();
 
-        if (userProfile?.empresa_id) {
+        if (userProfile?.empresa_id && profile.user?.id) {
           const { data: testId } = await supabase.rpc('log_connectivity_test', {
             p_empresa_id: userProfile.empresa_id,
             p_test_type: testType,
@@ -370,7 +370,7 @@ class ConfigurationService {
             p_test_status: testStatus,
             p_response_time_ms: responseTime,
             p_error_message: errorMessage,
-            p_tested_by: profile.user!.id
+            p_tested_by: profile.user.id
           });
 
           testResult = {

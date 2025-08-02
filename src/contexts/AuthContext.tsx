@@ -279,7 +279,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('nombre', 'ContaPYME Default')
         .single();
       
-      const empresaId = empresaDefault?.id || null;
+      let empresaId = empresaDefault?.id || null;
+      
+      // Si no hay empresa por defecto, crear una
+      if (!empresaId) {
+        try {
+          const { data: newEmpresa, error: empresaError } = await supabase
+            .from('empresas')
+            .insert({
+              nombre: 'ContaPYME Default',
+              razon_social: 'ContaPYME Default S.A.',
+              cuit: '20-12345678-9',
+              email: 'admin@contapyme.com',
+              telefono: '+54 11 1234-5678',
+              direccion: 'Av. Corrientes 1234, CABA',
+              created_by: 'test-user-id-12345678901234567890'
+            })
+            .select('id')
+            .single();
+          
+          if (!empresaError && newEmpresa) {
+            empresaId = newEmpresa.id;
+            console.log('Created default empresa with ID:', empresaId);
+          }
+        } catch (error) {
+          console.error('Error creating default empresa:', error);
+        }
+      }
       
       console.log('Mock login - empresa found:', empresaId);
       
