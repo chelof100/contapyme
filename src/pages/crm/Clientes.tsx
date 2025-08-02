@@ -483,7 +483,7 @@ const Clientes = () => {
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="activo">Activo</SelectItem>
                 <SelectItem value="inactivo">Inactivo</SelectItem>
                 <SelectItem value="prospecto">Prospecto</SelectItem>
@@ -494,7 +494,7 @@ const Clientes = () => {
                 <SelectValue placeholder="Categoría" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="VIP">VIP</SelectItem>
                 <SelectItem value="Regular">Regular</SelectItem>
                 <SelectItem value="Nuevo">Nuevo</SelectItem>

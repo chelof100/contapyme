@@ -168,8 +168,8 @@ const Oportunidades = () => {
   const metricas = calcularMetricas();
 
   const oportunidadesFiltradas = oportunidades.filter(oportunidad => {
-    const matchEtapa = !filtros.etapa || oportunidad.etapa_id === filtros.etapa;
-    const matchEstado = !filtros.estado || oportunidad.estado === filtros.estado;
+    const matchEtapa = !filtros.etapa || filtros.etapa === 'all' || oportunidad.etapa_id === filtros.etapa;
+    const matchEstado = !filtros.estado || filtros.estado === 'all' || oportunidad.estado === filtros.estado;
     const matchAssigned = !filtros.assigned_to || oportunidad.assigned_to === filtros.assigned_to;
     
     return matchEtapa && matchEstado && matchAssigned;
@@ -382,7 +382,7 @@ const Oportunidades = () => {
                 <SelectValue placeholder="Filtrar por etapa" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las etapas</SelectItem>
+                <SelectItem value="all">Todas las etapas</SelectItem>
                 {etapas.map((etapa) => (
                   <SelectItem key={etapa.id} value={etapa.id}>
                     {etapa.nombre}
@@ -395,7 +395,7 @@ const Oportunidades = () => {
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="abierta">Abierta</SelectItem>
                 <SelectItem value="ganada">Ganada</SelectItem>
                 <SelectItem value="perdida">Perdida</SelectItem>
