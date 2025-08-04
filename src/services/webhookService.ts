@@ -469,6 +469,25 @@ class WebhookService {
     });
   }
 
+  async procesarAlertasStock(alertaData: any): Promise<WebhookResponse> {
+    // Validar datos requeridos
+    const requiredFields = ['empresa_id'];
+    const missingFields = requiredFields.filter(field => !alertaData[field]);
+    
+    if (missingFields.length > 0) {
+      return {
+        success: false,
+        error: `Campos faltantes: ${missingFields.join(', ')}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    return this.makeRequest(this.config.endpoints.stockAlerta, alertaData, {
+      validate: true,
+      priority: 'medium'
+    });
+  }
+
   // Webhook para descarga masiva de facturas (actualizado con selección específica)
   async descargarFacturasMasivo(data: any): Promise<WebhookResponse> {
     return this.makeRequest('/webhook/facturas-descarga-masiva', data, {

@@ -209,16 +209,19 @@ n8n se usa para automatizaciones avanzadas. Las siguientes funciones están cone
 /webhook/emitir-factura          # ✅ COMPLETADO - Emisión de facturas con AFIP SDK
 /webhook/actualizar-stock        # ✅ COMPLETADO - Actualización automática de inventario
 /webhook/registrar-pago          # ✅ COMPLETADO - Procesamiento de pagos
+/webhook/alerta-stock            # ✅ COMPLETADO - Notificaciones de stock bajo
 
 # Workflows Pendientes:
-/webhook/alerta-stock            # ⚠️ PENDIENTE - Notificaciones de stock bajo
 /webhook/validar-cuit            # 🔍 PENDIENTE - Validación independiente de CUIT
 ```
 
 **📋 Documentación Completa:**
+- [Análisis Completo del Proyecto](./docs/ANALISIS_COMPLETO_PROYECTO.md)
+- [Recomendaciones de Mejoras](./docs/RECOMENDACIONES_MEJORAS.md)
 - [Workflow: Emitir Facturas](./docs/WORKFLOW_EMITIR_FACTURAS.md)
 - [Workflow: Actualizar Stock](./docs/WORKFLOW_ACTUALIZAR_STOCK.md)
 - [Workflow: Registro de Pagos](./docs/WORKFLOW_REGISTRAR_PAGO.md)
+- [Workflow: Alertas de Stock](./docs/WORKFLOW_ALERTAS_STOCK.md)
 - [Workflows Pendientes](./docs/WORKFLOWS_PENDIENTES.md)
 - [Configuración de n8n](./docs/N8N_WORKFLOWS.md)
 
@@ -389,9 +392,9 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 - [x] Documentación completa del sistema
 
 ### **🔄 En Desarrollo (Fase 2)**
-- [ ] Workflow de actualización automática de stock
-- [ ] Workflow de registro de pagos
-- [ ] Workflow de alertas de stock
+- [x] Workflow de actualización automática de stock
+- [x] Workflow de registro de pagos
+- [x] Workflow de alertas de stock
 - [ ] Validación independiente de CUIT
 
 ### **📋 Planificado (Fase 3)**
