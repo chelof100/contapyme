@@ -205,18 +205,20 @@ n8n se usa para automatizaciones avanzadas. Las siguientes funciones están cone
 
 #### **5.3. Workflows Disponibles:**
 ```bash
-# Workflow Implementado:
+# Workflows Implementados:
 /webhook/emitir-factura          # ✅ COMPLETADO - Emisión de facturas con AFIP SDK
+/webhook/actualizar-stock        # ✅ COMPLETADO - Actualización automática de inventario
+/webhook/registrar-pago          # ✅ COMPLETADO - Procesamiento de pagos
 
 # Workflows Pendientes:
-/webhook/actualizar-stock        # 📦 PENDIENTE - Actualización automática de inventario
-/webhook/registrar-pago          # 💰 PENDIENTE - Procesamiento de pagos
 /webhook/alerta-stock            # ⚠️ PENDIENTE - Notificaciones de stock bajo
 /webhook/validar-cuit            # 🔍 PENDIENTE - Validación independiente de CUIT
 ```
 
 **📋 Documentación Completa:**
 - [Workflow: Emitir Facturas](./docs/WORKFLOW_EMITIR_FACTURAS.md)
+- [Workflow: Actualizar Stock](./docs/WORKFLOW_ACTUALIZAR_STOCK.md)
+- [Workflow: Registro de Pagos](./docs/WORKFLOW_REGISTRAR_PAGO.md)
 - [Workflows Pendientes](./docs/WORKFLOWS_PENDIENTES.md)
 - [Configuración de n8n](./docs/N8N_WORKFLOWS.md)
 

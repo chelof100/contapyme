@@ -450,6 +450,25 @@ class WebhookService {
     });
   }
 
+  async registrarPagoCompleto(pagoData: any): Promise<WebhookResponse> {
+    // Validar datos requeridos
+    const requiredFields = ['factura_id', 'numero_factura', 'tipo_factura', 'monto', 'metodo_pago', 'empresa_id'];
+    const missingFields = requiredFields.filter(field => !pagoData[field]);
+    
+    if (missingFields.length > 0) {
+      return {
+        success: false,
+        error: `Campos faltantes: ${missingFields.join(', ')}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    return this.makeRequest(this.config.endpoints.pago, pagoData, {
+      validate: true,
+      priority: 'high'
+    });
+  }
+
   // Webhook para descarga masiva de facturas (actualizado con selección específica)
   async descargarFacturasMasivo(data: any): Promise<WebhookResponse> {
     return this.makeRequest('/webhook/facturas-descarga-masiva', data, {
@@ -479,6 +498,32 @@ class WebhookService {
   // Webhook para actualización de stock (ingreso/egreso)
   async actualizarStock(data: any): Promise<WebhookResponse> {
     return this.makeRequest(this.config.endpoints.stockMovimiento, data);
+  }
+
+  async actualizarStockDesdeFactura(facturaData: any): Promise<WebhookResponse> {
+    // Extraer productos de la factura para actualizar stock
+    if (!facturaData.productos || facturaData.productos.length === 0) {
+      return {
+        success: true,
+        data: { message: 'No hay productos para actualizar stock' },
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    const stockData = {
+      factura_id: facturaData.factura_id || facturaData.id,
+      empresa_id: facturaData.empresa_id,
+      productos: facturaData.productos.map((producto: any) => ({
+        producto_id: producto.producto_id || producto.id,
+        sku: producto.sku,
+        cantidad_vendida: producto.cantidad || producto.cantidad_vendida
+      }))
+    };
+
+    return this.makeRequest(this.config.endpoints.stockMovimiento, stockData, {
+      validate: true,
+      priority: 'high'
+    });
   }
 
   // Webhook para ingreso de stock

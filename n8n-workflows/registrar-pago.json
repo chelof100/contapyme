@@ -1,0 +1,358 @@
+{
+  "name": "Registrar Pago - ContaPYME",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "registrar-pago",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "registrar-pago-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validación de datos de entrada\nconst inputData = $input.first().json;\n\n// Validar campos obligatorios\nconst requiredFields = ['factura_id', 'numero_factura', 'tipo_factura', 'monto', 'metodo_pago', 'empresa_id'];\nconst missingFields = requiredFields.filter(field => !inputData[field]);\n\nif (missingFields.length > 0) {\n  throw new Error(`Campos faltantes: ${missingFields.join(', ')}`);\n}\n\n// Validar monto\nif (typeof inputData.monto !== 'number' || inputData.monto <= 0) {\n  throw new Error('El monto debe ser un número mayor a 0');\n}\n\n// Validar tipo de factura\nconst tiposValidos = ['emitida', 'recibida'];\nif (!tiposValidos.includes(inputData.tipo_factura)) {\n  throw new Error(`Tipo de factura inválido. Debe ser: ${tiposValidos.join(' o ')}`);\n}\n\n// Validar método de pago\nconst metodosValidos = ['transferencia', 'efectivo', 'tarjeta', 'cheque', 'mercadopago'];\nif (!metodosValidos.includes(inputData.metodo_pago)) {\n  throw new Error(`Método de pago inválido. Debe ser: ${metodosValidos.join(', ')}`);\n}\n\n// Validar fecha de pago\nlet fechaPago = inputData.fecha_pago;\nif (!fechaPago) {\n  fechaPago = new Date().toISOString().split('T')[0];\n} else {\n  // Validar formato de fecha\n  const fechaRegex = /^\\d{4}-\\d{2}-\\d{2}$/;\n  if (!fechaRegex.test(fechaPago)) {\n    throw new Error('Formato de fecha inválido. Debe ser YYYY-MM-DD');\n  }\n}\n\n// Retornar datos validados\nreturn {\n  factura_id: inputData.factura_id,\n  numero_factura: inputData.numero_factura,\n  tipo_factura: inputData.tipo_factura,\n  monto: inputData.monto,\n  metodo_pago: inputData.metodo_pago,\n  transaccion_id: inputData.transaccion_id || null,\n  fecha_pago: fechaPago,\n  empresa_id: inputData.empresa_id,\n  notas: inputData.notas || '',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "validar-datos",
+      "name": "Validar Datos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, numero_factura, total, estado, cliente_nombre, proveedor_nombre\nFROM facturas_emitidas\nWHERE empresa_id = $1 AND numero_factura = $2\nUNION ALL\nSELECT id, numero_factura, monto as total, estado, null as cliente_nombre, proveedor_nombre\nFROM facturas_recibidas\nWHERE empresa_id = $1 AND numero_factura = $2;",
+        "options": {
+          "queryReplacement": "SELECT id, numero_factura, total, estado, cliente_nombre, proveedor_nombre\nFROM facturas_emitidas\nWHERE empresa_id = $1 AND numero_factura = $2\nUNION ALL\nSELECT id, numero_factura, monto as total, estado, null as cliente_nombre, proveedor_nombre\nFROM facturas_recibidas\nWHERE empresa_id = $1 AND numero_factura = $2;"
+        }
+      },
+      "id": "consultar-factura",
+      "name": "Consultar Factura",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener datos de entrada\nconst inputData = $input.first().json;\nconst factura = $('Consultar Factura').first().json;\n\n// Verificar que la factura existe\nif (!factura || factura.length === 0) {\n  throw new Error(`Factura ${inputData.numero_factura} no encontrada`);\n}\n\nconst facturaData = factura[0];\n\n// Verificar que el estado de la factura permite pagos\nif (facturaData.estado === 'pagada') {\n  throw new Error(`La factura ${inputData.numero_factura} ya está pagada`);\n}\n\nif (facturaData.estado === 'anulada') {\n  throw new Error(`La factura ${inputData.numero_factura} está anulada y no puede recibir pagos`);\n}\n\n// Verificar que el monto del pago no exceda el total de la factura\nif (inputData.monto > facturaData.total) {\n  throw new Error(`El monto del pago (${inputData.monto}) excede el total de la factura (${facturaData.total})`);\n}\n\n// Determinar si el pago completa la factura\nconst pagoCompleto = inputData.monto >= facturaData.total;\nconst nuevoEstado = pagoCompleto ? 'pagada' : 'parcialmente_pagada';\n\n// Retornar datos validados\nreturn {\n  factura_id: facturaData.id,\n  numero_factura: facturaData.numero_factura,\n  tipo_factura: inputData.tipo_factura,\n  monto: inputData.monto,\n  total_factura: facturaData.total,\n  metodo_pago: inputData.metodo_pago,\n  transaccion_id: inputData.transaccion_id,\n  fecha_pago: inputData.fecha_pago,\n  empresa_id: inputData.empresa_id,\n  notas: inputData.notas,\n  cliente_nombre: facturaData.cliente_nombre,\n  proveedor_nombre: facturaData.proveedor_nombre,\n  pago_completo: pagoCompleto,\n  nuevo_estado: nuevoEstado,\n  timestamp: inputData.timestamp\n};"
+      },
+      "id": "validar-factura",
+      "name": "Validar Factura",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "pagos",
+          "mode": "list"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "empresa_id": "={{ $json.empresa_id }}",
+            "factura_id": "={{ $json.factura_id }}",
+            "numero_factura": "={{ $json.numero_factura }}",
+            "tipo_factura": "={{ $json.tipo_factura }}",
+            "monto": "={{ $json.monto }}",
+            "metodo_pago": "={{ $json.metodo_pago }}",
+            "transaccion_id": "={{ $json.transaccion_id }}",
+            "fecha_pago": "={{ $json.fecha_pago }}",
+            "estado": "confirmado",
+            "notas": "={{ $json.notas }}",
+            "created_at": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ]
+        },
+        "options": {}
+      },
+      "id": "registrar-pago",
+      "name": "Registrar Pago",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "facturas_emitidas",
+          "mode": "list"
+        },
+        "updateKey": "id",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "estado": "={{ $('Validar Factura').first().json.nuevo_estado }}",
+            "updated_at": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ]
+        },
+        "options": {}
+      },
+      "id": "actualizar-factura-emitida",
+      "name": "Actualizar Factura Emitida",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 200],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "value": "public",
+          "mode": "list"
+        },
+        "table": {
+          "__rl": true,
+          "value": "facturas_recibidas",
+          "mode": "list"
+        },
+        "updateKey": "id",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "estado": "={{ $('Validar Factura').first().json.nuevo_estado }}",
+            "updated_at": "={{ new Date().toISOString() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ]
+        },
+        "options": {}
+      },
+      "id": "actualizar-factura-recibida",
+      "name": "Actualizar Factura Recibida",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [1340, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-credentials",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Determinar qué tabla actualizar según el tipo de factura\nconst tipoFactura = $('Validar Factura').first().json.tipo_factura;\nconst facturaId = $('Validar Factura').first().json.factura_id;\n\n// Retornar datos para el siguiente nodo\nreturn {\n  tipo_factura: tipoFactura,\n  factura_id: facturaId,\n  numero_factura: $('Validar Factura').first().json.numero_factura,\n  monto: $('Validar Factura').first().json.monto,\n  total_factura: $('Validar Factura').first().json.total_factura,\n  metodo_pago: $('Validar Factura').first().json.metodo_pago,\n  fecha_pago: $('Validar Factura').first().json.fecha_pago,\n  empresa_id: $('Validar Factura').first().json.empresa_id,\n  cliente_nombre: $('Validar Factura').first().json.cliente_nombre,\n  proveedor_nombre: $('Validar Factura').first().json.proveedor_nombre,\n  pago_completo: $('Validar Factura').first().json.pago_completo,\n  nuevo_estado: $('Validar Factura').first().json.nuevo_estado,\n  timestamp: $('Validar Factura').first().json.timestamp\n};"
+      },
+      "id": "preparar-notificacion",
+      "name": "Preparar Notificación",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "fromEmail": "={{ $env.GMAIL_FROM || 'facturacion@tuempresa.com' }}",
+        "toEmail": "={{ $('Preparar Notificación').first().json.tipo_factura === 'emitida' ? 'admin@tuempresa.com' : 'contabilidad@tuempresa.com' }}",
+        "subject": "={{ `Pago Registrado - Factura ${$('Preparar Notificación').first().json.numero_factura}` }}",
+        "message": "={{ `Se ha registrado un pago de $${$('Preparar Notificación').first().json.monto} por la factura ${$('Preparar Notificación').first().json.numero_factura}.\n\nDetalles:\n- Tipo: ${$('Preparar Notificación').first().json.tipo_factura}\n- Método: ${$('Preparar Notificación').first().json.metodo_pago}\n- Fecha: ${$('Preparar Notificación').first().json.fecha_pago}\n- Estado: ${$('Preparar Notificación').first().json.nuevo_estado}\n- Cliente/Proveedor: ${$('Preparar Notificación').first().json.cliente_nombre || $('Preparar Notificación').first().json.proveedor_nombre}\n\nEl pago ha sido procesado exitosamente.` }}",
+        "options": {}
+      },
+      "id": "enviar-notificacion",
+      "name": "Enviar Notificación",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "credentials": {
+        "gmailOAuth2Api": {
+          "id": "gmail-credentials",
+          "name": "Gmail OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Pago registrado exitosamente\",\n  \"factura_id\": $('Preparar Notificación').first().json.factura_id,\n  \"numero_factura\": $('Preparar Notificación').first().json.numero_factura,\n  \"tipo_factura\": $('Preparar Notificación').first().json.tipo_factura,\n  \"monto\": $('Preparar Notificación').first().json.monto,\n  \"total_factura\": $('Preparar Notificación').first().json.total_factura,\n  \"metodo_pago\": $('Preparar Notificación').first().json.metodo_pago,\n  \"fecha_pago\": $('Preparar Notificación').first().json.fecha_pago,\n  \"nuevo_estado\": $('Preparar Notificación').first().json.nuevo_estado,\n  \"pago_completo\": $('Preparar Notificación').first().json.pago_completo,\n  \"notificacion_enviada\": true,\n  \"timestamp\": $('Preparar Notificación').first().json.timestamp,\n  \"workflow\": \"registrar-pago\"\n}",
+        "options": {}
+      },
+      "id": "respuesta-exito",
+      "name": "Respuesta de Éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"message\": $json.message || \"Error en el registro del pago\",\n  \"error\": $json.message,\n  \"timestamp\": new Date().toISOString(),\n  \"workflow\": \"registrar-pago\"\n}",
+        "options": {}
+      },
+      "id": "respuesta-error",
+      "name": "Respuesta de Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validar Datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Datos": {
+      "main": [
+        [
+          {
+            "node": "Consultar Factura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Factura": {
+      "main": [
+        [
+          {
+            "node": "Validar Factura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Factura": {
+      "main": [
+        [
+          {
+            "node": "Registrar Pago",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Pago": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Factura Emitida",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Actualizar Factura Recibida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Factura Emitida": {
+      "main": [
+        [
+          {
+            "node": "Preparar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Factura Recibida": {
+      "main": [
+        [
+          {
+            "node": "Preparar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Notificación": {
+      "main": [
+        [
+          {
+            "node": "Enviar Notificación",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Notificación": {
+      "main": [
+        [
+          {
+            "node": "Respuesta de Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "contapyme-pagos",
+      "name": "ContaPYME Pagos"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+} 
