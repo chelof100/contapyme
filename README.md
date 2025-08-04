@@ -11,6 +11,7 @@ Sistema completo de contabilidad para pequeñas y medianas empresas argentinas, 
 - **Integración AFIP:** Validación automática de CUIT
 - **Dashboard Interactivo:** Monitoreo en tiempo real
 - **Automatizaciones n8n:** Procesos automáticos de negocio
+- **Analytics Inteligente:** Acciones rápidas personalizadas basadas en uso real
 
 ## 🛠️ Tecnologías
 
@@ -101,6 +102,12 @@ En tu proyecto Supabase, ve a **SQL Editor** y ejecuta las siguientes migracione
 -- Contiene: Integración completa entre módulos
 ```
 
+**Migración 7 - Analytics de Usuario:**
+```sql
+-- Ejecutar: supabase/migrations/20250101000000_user_analytics.sql
+-- Contiene: Sistema de tracking de uso y recomendaciones inteligentes
+```
+
 #### **4.3. Tablas Requeridas**
 La aplicación necesita las siguientes tablas (se crean automáticamente con las migraciones):
 
@@ -131,6 +138,10 @@ La aplicación necesita las siguientes tablas (se crean automáticamente con las
 - `configuraciones` - Configuraciones del sistema
 - `logs_conectividad` - Logs de conectividad
 - `backups_configuracion` - Backups de configuración
+
+**Tablas de Analytics:**
+- `user_actions` - Tracking de acciones del usuario
+- `user_preferences` - Preferencias y patrones de uso
 
 #### **4.4. Configurar Autenticación**
 1. En Supabase, ve a **Authentication → Settings**

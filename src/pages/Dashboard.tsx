@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +30,23 @@ import { useCRMDashboard } from '@/hooks/useCRMData';
 import { useERPDashboard } from '@/hooks/useERPData';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
+import { useUserAnalytics } from '@/hooks/useUserAnalytics';
 import { StatusIndicator, ConnectionStatus, MultiServiceStatus } from '@/components/ui/StatusIndicator';
+
+// Función para obtener el componente de icono
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, any> = {
+    FileText,
+    Users,
+    Target,
+    Folder,
+    CreditCard,
+    Package,
+    ShoppingCart,
+    ChefHat
+  };
+  return iconMap[iconName] || FileText;
+};
 
 const Dashboard = () => {
   const { recetasEnabled } = useConfig();
@@ -38,25 +54,12 @@ const Dashboard = () => {
   const crmData = useCRMDashboard();
   const erpData = useERPDashboard();
   const { healthStatus, history, loading, error, isRunning } = useHealthCheck();
+  const { quickActions, recentActivities, loading: analyticsLoading, trackAction } = useUserAnalytics();
 
-  // Quick actions for different modules
-  const quickActions = [
-    { name: 'Nueva Factura', href: '/facturas', icon: FileText, color: 'bg-blue-500' },
-    { name: 'Nuevo Cliente', href: '/crm/clientes', icon: Users, color: 'bg-green-500' },
-    { name: 'Nueva Oportunidad', href: '/crm/oportunidades', icon: Target, color: 'bg-purple-500' },
-    { name: 'Nuevo Proyecto', href: '/erp/proyectos', icon: Folder, color: 'bg-orange-500' },
-    { name: 'Registrar Pago', href: '/pagos', icon: CreditCard, color: 'bg-indigo-500' },
-    { name: 'Movimiento Stock', href: '/stock', icon: Package, color: 'bg-red-500' },
-  ];
-
-  // Recent activities simulation
-  const recentActivities = [
-    { type: 'factura', description: 'Factura 0001-00000123 emitida', time: '2 min ago', icon: FileText },
-    { type: 'cliente', description: 'Nuevo cliente: Empresa SA', time: '15 min ago', icon: Users },
-    { type: 'pago', description: 'Pago recibido: $50,000', time: '1 hora ago', icon: CreditCard },
-    { type: 'oportunidad', description: 'Oportunidad movida a "Negociación"', time: '2 horas ago', icon: Target },
-    { type: 'proyecto', description: 'Proyecto "Web App" completado', time: '3 horas ago', icon: Folder },
-  ];
+  // Track page view when component mounts
+  useEffect(() => {
+    trackAction('page_view', 'dashboard', '/dashboard');
+  }, [trackAction]);
 
   return (
     <div className="space-y-6">
@@ -118,20 +121,38 @@ const Dashboard = () => {
           <CardTitle className="flex items-center gap-2">
             <LayoutDashboard className="h-5 w-5" />
             Acciones Rápidas
+            {analyticsLoading && (
+              <span className="text-sm text-muted-foreground">(Personalizando...)</span>
+            )}
           </CardTitle>
+          <CardDescription>
+            Basado en tu uso reciente de la aplicación
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {quickActions.map((action) => (
-              <Link key={action.name} to={action.href}>
-                <Button variant="outline" className="h-20 w-full flex-col gap-2 hover:shadow-md transition-shadow">
-                  <div className={`p-2 rounded-lg ${action.color} text-white`}>
-                    <action.icon className="h-5 w-5" />
-                  </div>
-                  <span className="text-xs text-center">{action.name}</span>
-                </Button>
-              </Link>
-            ))}
+            {quickActions.map((action) => {
+              const IconComponent = getIconComponent(action.icon);
+              return (
+                <Link key={action.name} to={action.href}>
+                  <Button 
+                    variant="outline" 
+                    className="h-20 w-full flex-col gap-2 hover:shadow-md transition-shadow relative"
+                    onClick={() => trackAction('page_view', action.name.toLowerCase().replace(' ', '_'), action.href)}
+                  >
+                    <div className={`p-2 rounded-lg ${action.color} text-white`}>
+                      <IconComponent className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs text-center">{action.name}</span>
+                    {action.score > 0.5 && (
+                      <div className="absolute -top-1 -right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        ★
+                      </div>
+                    )}
+                  </Button>
+                </Link>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
@@ -377,21 +398,37 @@ const Dashboard = () => {
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-blue-500" />
               Actividad Reciente
+              {analyticsLoading && (
+                <span className="text-sm text-muted-foreground">(Cargando...)</span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentActivities.map((activity, index) => (
-                <div key={index} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
-                  <div className="p-2 bg-gray-100 rounded-full">
-                    <activity.icon className="h-4 w-4 text-gray-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{activity.description}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
+              {recentActivities.length > 0 ? (
+                recentActivities.map((activity, index) => {
+                  const IconComponent = getIconComponent(activity.icon);
+                  return (
+                    <div key={index} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
+                      <div className="p-2 bg-gray-100 rounded-full">
+                        <IconComponent className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground">{activity.time}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {activity.action_type}
+                      </Badge>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No hay actividades recientes</p>
+                  <p className="text-xs">Las actividades aparecerán aquí mientras uses la aplicación</p>
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
