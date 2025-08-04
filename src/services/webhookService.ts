@@ -409,7 +409,18 @@ class WebhookService {
 
   // Webhook para emisión de facturas con validación
   async emitirFactura(data: any): Promise<WebhookResponse> {
-    return this.makeRequest(this.config.endpoints.facturaEmision, data, {
+    // Agregar credenciales del usuario a los datos
+    const enrichedData = {
+      ...data,
+      // Credenciales del usuario
+      afip_token: import.meta.env.VITE_AFIP_TOKEN,
+      afip_sign: import.meta.env.VITE_AFIP_SIGN,
+      afip_cuit: import.meta.env.VITE_AFIP_CUIT,
+      supabase_url: import.meta.env.VITE_SUPABASE_URL,
+      supabase_anon_key: import.meta.env.VITE_SUPABASE_ANON_KEY
+    };
+
+    return this.makeRequest(this.config.endpoints.facturaEmision, enrichedData, {
       validate: true,
       schema: facturaSchema,
       priority: 'high'

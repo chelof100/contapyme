@@ -1,0 +1,388 @@
+{
+  "name": "Emitir Factura con AFIP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "emitir-factura",
+        "responseMode": "responseNode",
+        "options": {
+          "authentication": "headerAuth",
+          "headerName": "X-N8N-API-KEY",
+          "headerValue": "{{ $env.N8N_API_KEY }}"
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "emitir-factura-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validar datos de entrada y extraer credenciales\nconst data = $input.first().json;\n\n// Validaciones básicas\nif (!data.factura_id) {\n  throw new Error('factura_id es requerido');\n}\n\nif (!data.cuit_cliente) {\n  throw new Error('cuit_cliente es requerido');\n}\n\nif (!data.total || data.total <= 0) {\n  throw new Error('total debe ser mayor a 0');\n}\n\n// Validar credenciales del usuario\nif (!data.afip_token) {\n  throw new Error('afip_token es requerido');\n}\n\nif (!data.afip_sign) {\n  throw new Error('afip_sign es requerido');\n}\n\nif (!data.afip_cuit) {\n  throw new Error('afip_cuit es requerido');\n}\n\nif (!data.supabase_url) {\n  throw new Error('supabase_url es requerido');\n}\n\nif (!data.supabase_anon_key) {\n  throw new Error('supabase_anon_key es requerido');\n}\n\n// Validar formato de CUIT\nconst cuitRegex = /^\\d{2}-\\d{8}-\\d{1}$/;\nif (!cuitRegex.test(data.cuit_cliente)) {\n  throw new Error('Formato de CUIT inválido. Debe ser XX-XXXXXXXX-X');\n}\n\n// Preparar datos para AFIP\nconst afipData = {\n  factura_id: data.factura_id,\n  cuit_cliente: data.cuit_cliente.replace(/[^0-9]/g, ''),\n  total: data.total,\n  subtotal: data.subtotal || (data.total / 1.21),\n  iva: data.iva || (data.total - (data.total / 1.21)),\n  fecha: data.fecha || new Date().toISOString().split('T')[0],\n  tipo_factura: data.tipo_factura || 'A',\n  punto_venta: data.punto_venta || 1,\n  productos: data.productos || [],\n  \n  // Credenciales del usuario\n  afip_token: data.afip_token,\n  afip_sign: data.afip_sign,\n  afip_cuit: data.afip_cuit,\n  supabase_url: data.supabase_url,\n  supabase_anon_key: data.supabase_anon_key\n};\n\nreturn { json: afipData };"
+      },
+      "id": "validate-data",
+      "name": "Validar Datos y Credenciales",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://servicios1.afip.gov.ar/ws_sr_padron_a4/service.asmx",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/xml; charset=utf-8"
+            },
+            {
+              "name": "SOAPAction",
+              "value": "http://a4.soap.ws.server.puc.sr/getPersona"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "soapEnvelope",
+              "value": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <getPersona xmlns=\"http://a4.soap.ws.server.puc.sr/\">\n      <token>{{ $json.afip_token }}</token>\n      <sign>{{ $json.afip_sign }}</sign>\n      <cuitRepresentada>{{ $json.afip_cuit }}</cuitRepresentada>\n      <idPersona>{{ $json.cuit_cliente }}</idPersona>\n    </getPersona>\n  </soap:Body>\n</soap:Envelope>"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "consultar-cuit-afip",
+      "name": "Consultar CUIT AFIP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar respuesta de AFIP\nconst response = $input.first().json;\nconst afipData = $('Validar Datos y Credenciales').first().json;\n\n// Extraer datos del XML de respuesta\nlet cuitData = null;\n\nif (response && response.data) {\n  // Parsear XML response\n  const xmlText = response.data;\n  \n  // Buscar datos de la persona\n  const personaMatch = xmlText.match(/<personaReturn>([\\s\\S]*?)<\\/personaReturn>/);\n  \n  if (personaMatch) {\n    const personaXml = personaMatch[1];\n    \n    // Extraer información básica\n    const razonSocialMatch = personaXml.match(/<razonSocial>(.*?)<\\/razonSocial>/);\n    const tipoPersonaMatch = personaXml.match(/<tipoPersona>(.*?)<\\/tipoPersona>/);\n    const estadoMatch = personaXml.match(/<estadoClave>(.*?)<\\/estadoClave>/);\n    \n    cuitData = {\n      cuit: afipData.cuit_cliente,\n      razon_social: razonSocialMatch ? razonSocialMatch[1] : 'No disponible',\n      tipo_persona: tipoPersonaMatch ? tipoPersonaMatch[1] : 'No disponible',\n      estado: estadoMatch ? estadoMatch[1] : 'No disponible',\n      valido: estadoMatch ? estadoMatch[1] === 'ACTIVO' : false\n    };\n  }\n}\n\nif (!cuitData || !cuitData.valido) {\n  throw new Error(`CUIT ${afipData.cuit_cliente} no válido o inactivo en AFIP`);\n}\n\n// Combinar datos\nreturn {\n  json: {\n    ...afipData,\n    cliente_afip: cuitData\n  }\n};"
+      },
+      "id": "process-afip-response",
+      "name": "Procesar Respuesta AFIP",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://servicios1.afip.gov.ar/wsfev1/service.asmx",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/xml; charset=utf-8"
+            },
+            {
+              "name": "SOAPAction",
+              "value": "http://ar.gov.afip.dif.facturaelectronica/FECAESolicitar"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "soapEnvelope",
+              "value": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <FECAESolicitar xmlns=\"http://ar.gov.afip.dif.facturaelectronica/\">\n      <Auth>\n        <Token>{{ $json.afip_token }}</Token>\n        <Sign>{{ $json.afip_sign }}</Sign>\n        <Cuit>{{ $json.afip_cuit }}</Cuit>\n      </Auth>\n      <FeCAEReq>\n        <FeCabReq>\n          <CantReg>1</CantReg>\n          <PtoVta>{{ $json.punto_venta }}</PtoVta>\n          <Concepto>1</Concepto>\n        </FeCabReq>\n        <FeDetReq>\n          <FECAEDetRequest>\n            <Concepto>1</Concepto>\n            <DocTipo>80</DocTipo>\n            <DocNro>{{ $json.cuit_cliente }}</DocNro>\n            <CbteDesde>{{ $json.factura_id }}</CbteDesde>\n            <CbteHasta>{{ $json.factura_id }}</CbteHasta>\n            <CbteFch>{{ $json.fecha.replace(/-/g, '') }}</CbteFch>\n            <ImpTotal>{{ $json.total }}</ImpTotal>\n            <ImpTotConc>0</ImpTotConc>\n            <ImpNeto>{{ $json.subtotal }}</ImpNeto>\n            <ImpOpEx>0</ImpOpEx>\n            <ImpIVA>{{ $json.iva }}</ImpIVA>\n            <ImpTrib>0</ImpTrib>\n            <FchServDesde>{{ $json.fecha.replace(/-/g, '') }}</FchServDesde>\n            <FchServHasta>{{ $json.fecha.replace(/-/g, '') }}</FchServHasta>\n            <FchVtoPago>{{ $json.fecha.replace(/-/g, '') }}</FchVtoPago>\n            <MonId>PES</MonId>\n            <MonCotiz>1</MonCotiz>\n          </FECAEDetRequest>\n        </FeDetReq>\n      </FeCAEReq>\n    </FECAESolicitar>\n  </soap:Body>\n</soap:Envelope>"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "generar-cae",
+      "name": "Generar CAE",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesar respuesta de CAE\nconst response = $input.first().json;\nconst facturaData = $('Procesar Respuesta AFIP').first().json;\n\n// Extraer datos del XML de respuesta\nlet caeData = null;\n\nif (response && response.data) {\n  const xmlText = response.data;\n  \n  // Buscar datos del CAE\n  const caeMatch = xmlText.match(/<CAE>(.*?)<\\/CAE>/);\n  const caeVtoMatch = xmlText.match(/<CAEFchVto>(.*?)<\\/CAEFchVto>/);\n  const resultadoMatch = xmlText.match(/<Resultado>(.*?)<\\/Resultado>/);\n  \n  if (caeMatch && resultadoMatch && resultadoMatch[1] === 'A') {\n    caeData = {\n      cae: caeMatch[1],\n      fecha_vencimiento: caeVtoMatch ? caeVtoMatch[1] : null,\n      resultado: resultadoMatch[1],\n      valido: true\n    };\n  } else {\n    // Buscar errores\n    const errorMatch = xmlText.match(/<Errors>([\\s\\S]*?)<\\/Errors>/);\n    if (errorMatch) {\n      const errorMsg = errorMatch[1].match(/<Msg>(.*?)<\\/Msg>/);\n      throw new Error(`Error AFIP: ${errorMsg ? errorMsg[1] : 'Error desconocido'}`);\n    }\n  }\n}\n\nif (!caeData || !caeData.valido) {\n  throw new Error('No se pudo generar el CAE');\n}\n\n// Preparar datos para actualizar Supabase\nconst updateData = {\n  factura_id: facturaData.factura_id,\n  cae: caeData.cae,\n  fecha_vencimiento_cae: caeData.fecha_vencimiento,\n  estado: 'emitida',\n  cliente_razon_social: facturaData.cliente_afip.razon_social,\n  cuit_cliente: facturaData.cuit_cliente,\n  total: facturaData.total,\n  fecha_emision: facturaData.fecha,\n  \n  // Credenciales para Supabase\n  supabase_url: facturaData.supabase_url,\n  supabase_anon_key: facturaData.supabase_anon_key\n};\n\nreturn { json: updateData };"
+      },
+      "id": "process-cae-response",
+      "name": "Procesar Respuesta CAE",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.supabase_url }}/rest/v1/facturas_emitidas",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.supabase_anon_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.supabase_anon_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "={\n  \"cae\": \"{{ $json.cae }}\",\n  \"fecha_vencimiento_cae\": \"{{ $json.fecha_vencimiento_cae }}\",\n  \"estado\": \"{{ $json.estado }}\",\n  \"cliente_razon_social\": \"{{ $json.cliente_razon_social }}\",\n  \"cuit_cliente\": \"{{ $json.cuit_cliente }}\",\n  \"total\": {{ $json.total }},\n  \"fecha_emision\": \"{{ $json.fecha_emision }}\",\n  \"updated_at\": \"{{ new Date().toISOString() }}\"\n}"
+            }
+          ]
+        },
+        "options": {
+          "method": "PATCH",
+          "qs": {
+            "id": "=eq.{{ $json.factura_id }}"
+          }
+        }
+      },
+      "id": "update-supabase",
+      "name": "Actualizar Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "operation": "send",
+        "fromEmail": "{{ $json.email_cliente || 'facturacion@tuempresa.com' }}",
+        "toEmail": "{{ $json.email_cliente || 'cliente@example.com' }}",
+        "subject": "Factura {{ $json.factura_id }} - {{ $json.cliente_razon_social }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Factura {{ $json.factura_id }}</title>\n    <style>\n        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }\n        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n        .details { margin: 20px 0; }\n        .total { font-size: 18px; font-weight: bold; color: #28a745; }\n        .footer { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }\n    </style>\n</head>\n<body>\n    <div class=\"header\">\n        <h1>Factura {{ $json.factura_id }}</h1>\n        <p><strong>Cliente:</strong> {{ $json.cliente_razon_social }}</p>\n        <p><strong>CUIT:</strong> {{ $json.cuit_cliente }}</p>\n        <p><strong>Fecha:</strong> {{ $json.fecha_emision }}</p>\n    </div>\n    \n    <div class=\"details\">\n        <p><strong>CAE:</strong> {{ $json.cae }}</p>\n        <p><strong>Vencimiento CAE:</strong> {{ $json.fecha_vencimiento_cae }}</p>\n    </div>\n    \n    <div class=\"total\">\n        <p><strong>Total:</strong> ${{ $json.total.toLocaleString('es-AR') }}</p>\n    </div>\n    \n    <div class=\"footer\">\n        <p>Esta factura ha sido emitida electrónicamente y es válida para todos los efectos legales.</p>\n        <p>Gracias por su confianza.</p>\n    </div>\n</body>\n</html>"
+      },
+      "id": "enviar-email",
+      "name": "Enviar Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log de éxito\nconst facturaData = $('Procesar Respuesta CAE').first().json;\nconst emailResult = $('Enviar Email').first().json;\n\nconst logData = {\n  workflow_name: 'Emitir Factura',\n  factura_id: facturaData.factura_id,\n  cae: facturaData.cae,\n  cliente: facturaData.cliente_razon_social,\n  total: facturaData.total,\n  email_sent: emailResult ? true : false,\n  status: 'success',\n  timestamp: new Date().toISOString(),\n  execution_id: $execution.id,\n  \n  // Credenciales para guardar log\n  supabase_url: facturaData.supabase_url,\n  supabase_anon_key: facturaData.supabase_anon_key\n};\n\nreturn { json: logData };"
+      },
+      "id": "log-success",
+      "name": "Log de Éxito",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.supabase_url }}/rest/v1/workflow_logs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.supabase_anon_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $json.supabase_anon_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "body",
+              "value": "={\n  \"workflow_name\": \"{{ $json.workflow_name }}\",\n  \"factura_id\": \"{{ $json.factura_id }}\",\n  \"cae\": \"{{ $json.cae }}\",\n  \"cliente\": \"{{ $json.cliente }}\",\n  \"total\": {{ $json.total }},\n  \"email_sent\": {{ $json.email_sent }},\n  \"status\": \"{{ $json.status }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"execution_id\": \"{{ $json.execution_id }}\"\n}"
+            }
+          ]
+        }
+      },
+      "id": "save-log",
+      "name": "Guardar Log",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"factura_id\": $('Procesar Respuesta CAE').first().json.factura_id,\n  \"cae\": $('Procesar Respuesta CAE').first().json.cae,\n  \"cliente\": $('Procesar Respuesta CAE').first().json.cliente_razon_social,\n  \"total\": $('Procesar Respuesta CAE').first().json.total,\n  \"email_sent\": $('Enviar Email').first().json ? true : false,\n  \"timestamp\": new Date().toISOString()\n}"
+      },
+      "id": "response-success",
+      "name": "Respuesta de Éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": $json.message || 'Error desconocido',\n  \"factura_id\": $('Validar Datos y Credenciales').first().json.factura_id,\n  \"timestamp\": new Date().toISOString()\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "response-error",
+      "name": "Respuesta de Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2440, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validar Datos y Credenciales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Datos y Credenciales": {
+      "main": [
+        [
+          {
+            "node": "Consultar CUIT AFIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar CUIT AFIP": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta AFIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Respuesta AFIP": {
+      "main": [
+        [
+          {
+            "node": "Generar CAE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar CAE": {
+      "main": [
+        [
+          {
+            "node": "Procesar Respuesta CAE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Respuesta CAE": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Supabase": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email": {
+      "main": [
+        [
+          {
+            "node": "Log de Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log de Éxito": {
+      "main": [
+        [
+          {
+            "node": "Guardar Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Log": {
+      "main": [
+        [
+          {
+            "node": "Respuesta de Éxito",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "facturacion",
+      "name": "Facturación"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+} 

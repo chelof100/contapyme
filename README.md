@@ -108,6 +108,12 @@ En tu proyecto Supabase, ve a **SQL Editor** y ejecuta las siguientes migracione
 -- Contiene: Sistema de tracking de uso y recomendaciones inteligentes
 ```
 
+**Migración 8 - Logs de Workflows:**
+```sql
+-- Ejecutar: supabase/migrations/20250101000001_workflow_logs.sql
+-- Contiene: Sistema de logs y métricas para workflows de n8n
+```
+
 #### **4.3. Tablas Requeridas**
 La aplicación necesita las siguientes tablas (se crean automáticamente con las migraciones):
 
@@ -142,6 +148,10 @@ La aplicación necesita las siguientes tablas (se crean automáticamente con las
 **Tablas de Analytics:**
 - `user_actions` - Tracking de acciones del usuario
 - `user_preferences` - Preferencias y patrones de uso
+
+**Tablas de Workflows:**
+- `workflow_logs` - Logs de ejecución de workflows n8n
+- `workflow_metrics` - Métricas agregadas de workflows
 
 #### **4.4. Configurar Autenticación**
 1. En Supabase, ve a **Authentication → Settings**
@@ -340,6 +350,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 - 📧 **Email:** soporte@contapyme.com
 - 🐛 **Issues:** [GitHub Issues](https://github.com/chelof100/contapyme/issues)
 - 📖 **Documentación:** [docs/](docs/)
+- 🔧 **Workflows n8n:** [docs/N8N_WORKFLOWS.md](docs/N8N_WORKFLOWS.md)
 
 ## 🎯 Roadmap
 
