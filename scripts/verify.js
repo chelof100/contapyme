@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
+// Este script requiere configuración manual
+// Configura las credenciales de tu proyecto Supabase
 const supabase = createClient(
-  'https://uymvmqbiapcnfqskkdny.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5bXZtcWJpYXBjbmZxc2trZG55Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjQ1NTgwNiwiZXhwIjoyMDY4MDMxODA2fQ.xRN2fxuEdoMva_qdLHwlrI7kiAQw4jCrn0cF2ssfVpw'
+  process.env.SUPABASE_URL || 'https://tu-proyecto.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || 'tu_service_key_aqui'
 );
 
 async function finalVerification() {
