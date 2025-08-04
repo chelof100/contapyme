@@ -1,12 +1,21 @@
 /*
-  # Schema completo para ContaPYME
+  # Schema Inicial Consolidado para ContaPYME
 
-  1. Nuevas Tablas
+  Esta migración contiene todas las tablas base del sistema:
+  
+  1. Tablas Base
+    - `empresas` - Empresas/tenants del sistema
+    - `profiles` - Perfiles de usuarios extendidos
+    - `user_role` - Enum para roles de usuario
+
+  2. Tablas de Facturación
     - `facturas_emitidas` - Facturas emitidas por la empresa
     - `facturas_recibidas` - Facturas recibidas de proveedores
     - `ordenes_compra` - Órdenes de compra a proveedores
     - `ordenes_recepcion` - Recepciones de mercadería
     - `pagos` - Registro de pagos y cobros
+
+  3. Tablas de Productos y Stock
     - `productos` - Catálogo de productos
     - `movimientos_stock` - Historial de movimientos de stock
     - `alertas_stock` - Alertas de stock bajo
@@ -14,16 +23,54 @@
     - `ingredientes_receta` - Ingredientes de cada receta
     - `ventas_recetas` - Ventas de productos con recetas
 
-  2. Seguridad
+  4. Seguridad
     - RLS habilitado en todas las tablas
     - Políticas por empresa para multi-tenancy
     - Funciones auxiliares para obtener empresa del usuario
 
-  3. Triggers
+  5. Triggers
     - Actualización automática de timestamps
     - Validaciones de negocio
     - Alertas automáticas de stock
 */
+
+-- Crear enum para roles de usuario
+CREATE TYPE user_role AS ENUM ('admin', 'usuario', 'contador');
+
+-- Tabla de empresas (multi-tenancy)
+CREATE TABLE IF NOT EXISTS empresas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  razon_social TEXT NOT NULL,
+  nombre_fantasia TEXT,
+  cuit TEXT UNIQUE NOT NULL,
+  domicilio TEXT,
+  telefono TEXT,
+  email TEXT,
+  condicion_iva TEXT DEFAULT 'Responsable Inscripto',
+  logo_url TEXT,
+  configuracion JSONB DEFAULT '{}',
+  activa BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Tabla de perfiles de usuario
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT UNIQUE NOT NULL,
+  username TEXT,
+  first_name TEXT,
+  last_name TEXT,
+  empresa_id UUID REFERENCES empresas(id),
+  role user_role DEFAULT 'usuario'::user_role NOT NULL,
+  avatar_url TEXT,
+  is_active BOOLEAN DEFAULT true,
+  last_login TIMESTAMPTZ,
+  login_attempts INTEGER DEFAULT 0,
+  locked_until TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
 -- Crear función para obtener empresa del usuario actual
 CREATE OR REPLACE FUNCTION get_current_user_empresa_id()
@@ -70,6 +117,8 @@ CREATE TABLE IF NOT EXISTS facturas_emitidas (
   cae TEXT,
   fecha_vencimiento_cae DATE,
   pdf_url TEXT,
+  google_drive_url TEXT,
+  google_drive_id TEXT,
   observaciones TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
@@ -166,7 +215,8 @@ CREATE TABLE IF NOT EXISTS productos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   empresa_id UUID NOT NULL REFERENCES empresas(id),
   sku TEXT NOT NULL,
-  descripcion TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  descripcion TEXT,
   unidad_medida TEXT NOT NULL,
   precio_costo DECIMAL(15,2) DEFAULT 0,
   precio_venta_sugerido DECIMAL(15,2) DEFAULT 0,
@@ -211,7 +261,8 @@ CREATE TABLE IF NOT EXISTS alertas_stock (
   alerta_enviada BOOLEAN DEFAULT false,
   fecha_alerta DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(empresa_id, producto_id)
 );
 
 -- Tabla de recetas (para restaurantes/bares)
@@ -255,6 +306,8 @@ CREATE TABLE IF NOT EXISTS ventas_recetas (
 );
 
 -- Habilitar RLS en todas las tablas
+ALTER TABLE empresas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facturas_emitidas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facturas_recibidas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ordenes_compra ENABLE ROW LEVEL SECURITY;
@@ -268,6 +321,36 @@ ALTER TABLE alertas_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE recetas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ingredientes_receta ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ventas_recetas ENABLE ROW LEVEL SECURITY;
+
+-- Políticas RLS para empresas
+CREATE POLICY "Users can view their own company"
+  ON empresas FOR SELECT
+  TO authenticated
+  USING (id = get_current_user_empresa_id());
+
+CREATE POLICY "Users can update their own company"
+  ON empresas FOR UPDATE
+  TO authenticated
+  USING (id = get_current_user_empresa_id());
+
+-- Políticas RLS para profiles
+CREATE POLICY "Users can view their own profile"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (id = auth.uid());
+
+CREATE POLICY "Users can update their own profile"
+  ON profiles FOR UPDATE
+  TO authenticated
+  USING (id = auth.uid());
+
+CREATE POLICY "Admins can view profiles from their company"
+  ON profiles FOR SELECT
+  TO authenticated
+  USING (
+    get_current_user_role() = 'admin'::user_role AND
+    empresa_id = get_current_user_empresa_id()
+  );
 
 -- Políticas RLS para facturas emitidas
 CREATE POLICY "Users can view facturas from their company"
@@ -492,6 +575,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TRIGGER update_empresas_updated_at
+  BEFORE UPDATE ON empresas
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_facturas_emitidas_updated_at
   BEFORE UPDATE ON facturas_emitidas
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -546,7 +637,7 @@ BEGIN
         NEW.empresa_id,
         NEW.id,
         NEW.sku,
-        NEW.descripcion,
+        NEW.nombre,
         NEW.stock_actual,
         NEW.stock_minimo,
         NEW.stock_minimo - NEW.stock_actual,
@@ -574,12 +665,8 @@ CREATE TRIGGER productos_stock_alert_trigger
   AFTER INSERT OR UPDATE OF stock_actual, stock_minimo ON productos
   FOR EACH ROW EXECUTE FUNCTION check_stock_alert();
 
--- Agregar constraint único para alertas de stock
-ALTER TABLE alertas_stock 
-ADD CONSTRAINT alertas_stock_empresa_producto_unique 
-UNIQUE (empresa_id, producto_id);
-
 -- Índices para mejorar rendimiento
+CREATE INDEX IF NOT EXISTS idx_profiles_empresa_id ON profiles(empresa_id);
 CREATE INDEX IF NOT EXISTS idx_facturas_emitidas_empresa_fecha ON facturas_emitidas(empresa_id, fecha_emision);
 CREATE INDEX IF NOT EXISTS idx_facturas_recibidas_empresa_fecha ON facturas_recibidas(empresa_id, fecha_recepcion);
 CREATE INDEX IF NOT EXISTS idx_ordenes_compra_empresa_estado ON ordenes_compra(empresa_id, estado);
@@ -587,4 +674,4 @@ CREATE INDEX IF NOT EXISTS idx_pagos_empresa_fecha ON pagos(empresa_id, fecha_pa
 CREATE INDEX IF NOT EXISTS idx_productos_empresa_sku ON productos(empresa_id, sku);
 CREATE INDEX IF NOT EXISTS idx_movimientos_stock_empresa_fecha ON movimientos_stock(empresa_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_alertas_stock_empresa_activa ON alertas_stock(empresa_id, alerta_enviada);
-CREATE INDEX IF NOT EXISTS idx_recetas_empresa_activa ON recetas(empresa_id, activa);
+CREATE INDEX IF NOT EXISTS idx_recetas_empresa_activa ON recetas(empresa_id, activa); 
