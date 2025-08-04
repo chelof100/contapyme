@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validar datos de entrada y extraer credenciales\nconst data = $input.first().json;\n\n// Validaciones básicas\nif (!data.factura_id) {\n  throw new Error('factura_id es requerido');\n}\n\nif (!data.cuit_cliente) {\n  throw new Error('cuit_cliente es requerido');\n}\n\nif (!data.total || data.total <= 0) {\n  throw new Error('total debe ser mayor a 0');\n}\n\n// Validar credenciales del usuario\nif (!data.afip_token) {\n  throw new Error('afip_token es requerido');\n}\n\nif (!data.afip_sign) {\n  throw new Error('afip_sign es requerido');\n}\n\nif (!data.afip_cuit) {\n  throw new Error('afip_cuit es requerido');\n}\n\nif (!data.supabase_url) {\n  throw new Error('supabase_url es requerido');\n}\n\nif (!data.supabase_anon_key) {\n  throw new Error('supabase_anon_key es requerido');\n}\n\n// Validar formato de CUIT\nconst cuitRegex = /^\\d{2}-\\d{8}-\\d{1}$/;\nif (!cuitRegex.test(data.cuit_cliente)) {\n  throw new Error('Formato de CUIT inválido. Debe ser XX-XXXXXXXX-X');\n}\n\n// Preparar datos para AFIP\nconst afipData = {\n  factura_id: data.factura_id,\n  cuit_cliente: data.cuit_cliente.replace(/[^0-9]/g, ''),\n  total: data.total,\n  subtotal: data.subtotal || (data.total / 1.21),\n  iva: data.iva || (data.total - (data.total / 1.21)),\n  fecha: data.fecha || new Date().toISOString().split('T')[0],\n  tipo_factura: data.tipo_factura || 'A',\n  punto_venta: data.punto_venta || 1,\n  productos: data.productos || [],\n  \n  // Credenciales del usuario\n  afip_token: data.afip_token,\n  afip_sign: data.afip_sign,\n  afip_cuit: data.afip_cuit,\n  supabase_url: data.supabase_url,\n  supabase_anon_key: data.supabase_anon_key\n};\n\nreturn { json: afipData };"
+        "jsCode": "// Validar datos de entrada y extraer credenciales\nconst data = $input.first().json;\n\n// Validaciones básicas\nif (!data.factura_id) {\n  throw new Error('factura_id es requerido');\n}\n\nif (!data.cuit_cliente) {\n  throw new Error('cuit_cliente es requerido');\n}\n\nif (!data.total || data.total <= 0) {\n  throw new Error('total debe ser mayor a 0');\n}\n\n// Validar credenciales del usuario\nif (!data.afip_token) {\n  throw new Error('afip_token es requerido');\n}\n\nif (!data.afip_sign) {\n  throw new Error('afip_sign es requerido');\n}\n\nif (!data.afip_cuit) {\n  throw new Error('afip_cuit es requerido');\n}\n\nif (!data.supabase_url) {\n  throw new Error('supabase_url es requerido');\n}\n\nif (!data.supabase_anon_key) {\n  throw new Error('supabase_anon_key es requerido');\n}\n\n// Validar formato de CUIT\nconst cuitRegex = /^\\d{2}-\\d{8}-\\d{1}$/;\nif (!cuitRegex.test(data.cuit_cliente)) {\n  throw new Error('Formato de CUIT inválido. Debe ser XX-XXXXXXXX-X');\n}\n\n// Preparar datos para AFIP SDK\nconst afipData = {\n  factura_id: data.factura_id,\n  cuit_cliente: data.cuit_cliente.replace(/[^0-9]/g, ''),\n  total: data.total,\n  subtotal: data.subtotal || (data.total / 1.21),\n  iva: data.iva || (data.total - (data.total / 1.21)),\n  fecha: data.fecha || new Date().toISOString().split('T')[0],\n  tipo_factura: data.tipo_factura || 'B',\n  punto_venta: data.punto_venta || 1,\n  productos: data.productos || [],\n  \n  // Credenciales del usuario\n  afip_token: data.afip_token,\n  afip_sign: data.afip_sign,\n  afip_cuit: data.afip_cuit,\n  supabase_url: data.supabase_url,\n  supabase_anon_key: data.supabase_anon_key,\n  \n  // Datos de la empresa\n  empresa_razon_social: data.empresa_razon_social || 'Empresa del Usuario',\n  empresa_domicilio: data.empresa_domicilio || 'Domicilio del Usuario',\n  empresa_condicion_iva: data.empresa_condicion_iva || 'Responsable Inscripto',\n  \n  // Datos para email\n  email_cliente: data.email_cliente || null,\n  nombre_cliente: data.nombre_cliente || 'Cliente'\n};\n\nreturn { json: afipData };"
       },
       "id": "validate-data",
       "name": "Validar Datos y Credenciales",
@@ -31,26 +31,22 @@
     },
     {
       "parameters": {
-        "url": "https://servicios1.afip.gov.ar/ws_sr_padron_a4/service.asmx",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "text/xml; charset=utf-8"
-            },
-            {
-              "name": "SOAPAction",
-              "value": "http://a4.soap.ws.server.puc.sr/getPersona"
-            }
-          ]
-        },
+        "method": "POST",
+        "url": "https://app.afipsdk.com/api/v1/afip/auth",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "soapEnvelope",
-              "value": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <getPersona xmlns=\"http://a4.soap.ws.server.puc.sr/\">\n      <token>{{ $json.afip_token }}</token>\n      <sign>{{ $json.afip_sign }}</sign>\n      <cuitRepresentada>{{ $json.afip_cuit }}</cuitRepresentada>\n      <idPersona>{{ $json.cuit_cliente }}</idPersona>\n    </getPersona>\n  </soap:Body>\n</soap:Envelope>"
+              "name": "environment",
+              "value": "{{ $json.environment || 'dev' }}"
+            },
+            {
+              "name": "tax_id",
+              "value": "{{ $json.afip_cuit }}"
+            },
+            {
+              "name": "wsid",
+              "value": "wsfe"
             }
           ]
         },
@@ -58,63 +54,52 @@
           "timeout": 30000
         }
       },
-      "id": "consultar-cuit-afip",
-      "name": "Consultar CUIT AFIP",
+      "id": "get-authorization",
+      "name": "Obtener Autorización AFIP",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
       "position": [680, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Procesar respuesta de AFIP\nconst response = $input.first().json;\nconst afipData = $('Validar Datos y Credenciales').first().json;\n\n// Extraer datos del XML de respuesta\nlet cuitData = null;\n\nif (response && response.data) {\n  // Parsear XML response\n  const xmlText = response.data;\n  \n  // Buscar datos de la persona\n  const personaMatch = xmlText.match(/<personaReturn>([\\s\\S]*?)<\\/personaReturn>/);\n  \n  if (personaMatch) {\n    const personaXml = personaMatch[1];\n    \n    // Extraer información básica\n    const razonSocialMatch = personaXml.match(/<razonSocial>(.*?)<\\/razonSocial>/);\n    const tipoPersonaMatch = personaXml.match(/<tipoPersona>(.*?)<\\/tipoPersona>/);\n    const estadoMatch = personaXml.match(/<estadoClave>(.*?)<\\/estadoClave>/);\n    \n    cuitData = {\n      cuit: afipData.cuit_cliente,\n      razon_social: razonSocialMatch ? razonSocialMatch[1] : 'No disponible',\n      tipo_persona: tipoPersonaMatch ? tipoPersonaMatch[1] : 'No disponible',\n      estado: estadoMatch ? estadoMatch[1] : 'No disponible',\n      valido: estadoMatch ? estadoMatch[1] === 'ACTIVO' : false\n    };\n  }\n}\n\nif (!cuitData || !cuitData.valido) {\n  throw new Error(`CUIT ${afipData.cuit_cliente} no válido o inactivo en AFIP`);\n}\n\n// Combinar datos\nreturn {\n  json: {\n    ...afipData,\n    cliente_afip: cuitData\n  }\n};"
-      },
-      "id": "process-afip-response",
-      "name": "Procesar Respuesta AFIP",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [900, 300]
-    },
-    {
-      "parameters": {
-        "url": "https://servicios1.afip.gov.ar/wsfev1/service.asmx",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "text/xml; charset=utf-8"
-            },
-            {
-              "name": "SOAPAction",
-              "value": "http://ar.gov.afip.dif.facturaelectronica/FECAESolicitar"
-            }
-          ]
-        },
+        "method": "POST",
+        "url": "https://app.afipsdk.com/api/v1/afip/requests",
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "soapEnvelope",
-              "value": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\">\n  <soap:Body>\n    <FECAESolicitar xmlns=\"http://ar.gov.afip.dif.facturaelectronica/\">\n      <Auth>\n        <Token>{{ $json.afip_token }}</Token>\n        <Sign>{{ $json.afip_sign }}</Sign>\n        <Cuit>{{ $json.afip_cuit }}</Cuit>\n      </Auth>\n      <FeCAEReq>\n        <FeCabReq>\n          <CantReg>1</CantReg>\n          <PtoVta>{{ $json.punto_venta }}</PtoVta>\n          <Concepto>1</Concepto>\n        </FeCabReq>\n        <FeDetReq>\n          <FECAEDetRequest>\n            <Concepto>1</Concepto>\n            <DocTipo>80</DocTipo>\n            <DocNro>{{ $json.cuit_cliente }}</DocNro>\n            <CbteDesde>{{ $json.factura_id }}</CbteDesde>\n            <CbteHasta>{{ $json.factura_id }}</CbteHasta>\n            <CbteFch>{{ $json.fecha.replace(/-/g, '') }}</CbteFch>\n            <ImpTotal>{{ $json.total }}</ImpTotal>\n            <ImpTotConc>0</ImpTotConc>\n            <ImpNeto>{{ $json.subtotal }}</ImpNeto>\n            <ImpOpEx>0</ImpOpEx>\n            <ImpIVA>{{ $json.iva }}</ImpIVA>\n            <ImpTrib>0</ImpTrib>\n            <FchServDesde>{{ $json.fecha.replace(/-/g, '') }}</FchServDesde>\n            <FchServHasta>{{ $json.fecha.replace(/-/g, '') }}</FchServHasta>\n            <FchVtoPago>{{ $json.fecha.replace(/-/g, '') }}</FchVtoPago>\n            <MonId>PES</MonId>\n            <MonCotiz>1</MonCotiz>\n          </FECAEDetRequest>\n        </FeDetReq>\n      </FeCAEReq>\n    </FECAESolicitar>\n  </soap:Body>\n</soap:Envelope>"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"environment\": \"{{ $json.environment || 'dev' }}\",\n  \"method\": \"FECompUltimoAutorizado\",\n  \"wsid\": \"wsfe\",\n  \"params\": {\n    \"Auth\": {\n      \"Token\": \"{{ $json.token }}\",\n      \"Sign\": \"{{ $json.sign }}\",\n      \"Cuit\": \"{{ $('Validar Datos y Credenciales').first().json.afip_cuit }}\"\n    },\n    \"PtoVta\": {{ $('Validar Datos y Credenciales').first().json.punto_venta }},\n    \"CbteTipo\": {{ $('Validar Datos y Credenciales').first().json.tipo_factura === 'A' ? 1 : 6 }}\n  }\n}",
         "options": {
           "timeout": 30000
         }
       },
-      "id": "generar-cae",
-      "name": "Generar CAE",
+      "id": "get-last-voucher",
+      "name": "Obtener Último Número",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://app.afipsdk.com/api/v1/afip/requests",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"environment\": \"{{ $json.environment || 'dev' }}\",\n  \"method\": \"FECAESolicitar\",\n  \"wsid\": \"wsfe\",\n  \"params\": {\n    \"Auth\": {\n      \"Token\": \"{{ $('Obtener Autorización AFIP').first().json.token }}\",\n      \"Sign\": \"{{ $('Obtener Autorización AFIP').first().json.sign }}\",\n      \"Cuit\": \"{{ $('Validar Datos y Credenciales').first().json.afip_cuit }}\"\n    },\n    \"FeCAEReq\": {\n      \"FeCabReq\": {\n        \"CantReg\": 1,\n        \"PtoVta\": {{ $('Validar Datos y Credenciales').first().json.punto_venta }},\n        \"CbteTipo\": {{ $('Validar Datos y Credenciales').first().json.tipo_factura === 'A' ? 1 : 6 }}\n      },\n      \"FeDetReq\": {\n        \"FECAEDetRequest\": {\n          \"Concepto\": 1,\n          \"DocTipo\": 80,\n          \"DocNro\": {{ $('Validar Datos y Credenciales').first().json.cuit_cliente }},\n          \"CbteDesde\": {{ $json.FECompUltimoAutorizadoResult.CbteNro + 1 }},\n          \"CbteHasta\": {{ $json.FECompUltimoAutorizadoResult.CbteNro + 1 }},\n          \"CbteFch\": {{ $('Validar Datos y Credenciales').first().json.fecha.replace(/-/g, '') }},\n          \"FchServDesde\": null,\n          \"FchServHasta\": null,\n          \"FchVtoPago\": null,\n          \"ImpTotal\": {{ $('Validar Datos y Credenciales').first().json.total }},\n          \"ImpTotConc\": 0,\n          \"ImpNeto\": {{ $('Validar Datos y Credenciales').first().json.subtotal }},\n          \"ImpOpEx\": 0,\n          \"ImpIVA\": {{ $('Validar Datos y Credenciales').first().json.iva }},\n          \"ImpTrib\": 0,\n          \"MonId\": \"PES\",\n          \"MonCotiz\": 1,\n          \"CondicionIVAReceptorId\": 1\n        }\n      }\n    }\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "create-voucher",
+      "name": "Crear Voucher",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [1120, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Procesar respuesta de CAE\nconst response = $input.first().json;\nconst facturaData = $('Procesar Respuesta AFIP').first().json;\n\n// Extraer datos del XML de respuesta\nlet caeData = null;\n\nif (response && response.data) {\n  const xmlText = response.data;\n  \n  // Buscar datos del CAE\n  const caeMatch = xmlText.match(/<CAE>(.*?)<\\/CAE>/);\n  const caeVtoMatch = xmlText.match(/<CAEFchVto>(.*?)<\\/CAEFchVto>/);\n  const resultadoMatch = xmlText.match(/<Resultado>(.*?)<\\/Resultado>/);\n  \n  if (caeMatch && resultadoMatch && resultadoMatch[1] === 'A') {\n    caeData = {\n      cae: caeMatch[1],\n      fecha_vencimiento: caeVtoMatch ? caeVtoMatch[1] : null,\n      resultado: resultadoMatch[1],\n      valido: true\n    };\n  } else {\n    // Buscar errores\n    const errorMatch = xmlText.match(/<Errors>([\\s\\S]*?)<\\/Errors>/);\n    if (errorMatch) {\n      const errorMsg = errorMatch[1].match(/<Msg>(.*?)<\\/Msg>/);\n      throw new Error(`Error AFIP: ${errorMsg ? errorMsg[1] : 'Error desconocido'}`);\n    }\n  }\n}\n\nif (!caeData || !caeData.valido) {\n  throw new Error('No se pudo generar el CAE');\n}\n\n// Preparar datos para actualizar Supabase\nconst updateData = {\n  factura_id: facturaData.factura_id,\n  cae: caeData.cae,\n  fecha_vencimiento_cae: caeData.fecha_vencimiento,\n  estado: 'emitida',\n  cliente_razon_social: facturaData.cliente_afip.razon_social,\n  cuit_cliente: facturaData.cuit_cliente,\n  total: facturaData.total,\n  fecha_emision: facturaData.fecha,\n  \n  // Credenciales para Supabase\n  supabase_url: facturaData.supabase_url,\n  supabase_anon_key: facturaData.supabase_anon_key\n};\n\nreturn { json: updateData };"
+        "jsCode": "// Generar QR según especificaciones oficiales de AFIP\nconst facturaData = $('Validar Datos y Credenciales').first().json;\nconst voucherResponse = $input.first().json;\n\n// Datos para el QR (Respetar si es string o numero)\nconst QRCodeData = {\n    'ver': 1, // Versión del formato de los datos (1 por defecto)\n    'fecha': facturaData.fecha, // Fecha de emisión del comprobante\n    'cuit': Number(facturaData.afip_cuit), // Cuit del Emisor del comprobante\n    'ptoVta': Number(facturaData.punto_venta), // Punto de venta utilizado para emitir el comprobante\n    'tipoCmp': Number(facturaData.tipo_factura === 'A' ? 1 : 6), // Tipo de comprobante\n    'nroCmp': Number(voucherResponse.FECAESolicitarResult.FeDetResp.FECAEDetResponse[0].CbteDesde), // Número de comprobante\n    'importe': Number(facturaData.total), // Importe Total del comprobante\n    'moneda': 'ARS', // Moneda del comprobante\n    'ctz': Number(1), // Cotización en pesos argentinos de la moneda utilizada\n    'tipoDocRec': Number(80), // Código del Tipo de documento del receptor\n    'nroDocRec': Number(facturaData.cuit_cliente), // Número de documento del receptor\n    'tipoCodAut': 'E', // \"A\" para comprobante autorizado por CAEA, \"E\" para comprobante autorizado por CAE\n    'codAut': Number(voucherResponse.FECAESolicitarResult.FeDetResp.FECAEDetResponse[0].CAE)  // CAE o CAEA\n};\n\n// Preparamos el texto para el qr en base a especificaciones oficiales de AFIP\nconst QRCodeText = 'https://www.afip.gob.ar/fe/qr/?p=' + Buffer.from(JSON.stringify(QRCodeData)).toString('base64');\n\n// Preparar datos para actualizar Supabase\nconst updateData = {\n  factura_id: facturaData.factura_id,\n  cae: voucherResponse.FECAESolicitarResult.FeDetResp.FECAEDetResponse[0].CAE,\n  fecha_vencimiento_cae: voucherResponse.FECAESolicitarResult.FeDetResp.FECAEDetResponse[0].CAEFchVto,\n  estado: 'emitida',\n  numero_comprobante: voucherResponse.FECAESolicitarResult.FeDetResp.FECAEDetResponse[0].CbteDesde,\n  total: facturaData.total,\n  fecha_emision: facturaData.fecha,\n  qr_code: QRCodeText,\n  \n  // Credenciales para Supabase\n  supabase_url: facturaData.supabase_url,\n  supabase_anon_key: facturaData.supabase_anon_key,\n  \n  // Datos para generar PDF\n  empresa_razon_social: facturaData.empresa_razon_social,\n  empresa_domicilio: facturaData.empresa_domicilio,\n  empresa_condicion_iva: facturaData.empresa_condicion_iva,\n  cuit_cliente: facturaData.cuit_cliente,\n  productos: facturaData.productos,\n  \n  // Datos para email\n  email_cliente: facturaData.email_cliente,\n  nombre_cliente: facturaData.nombre_cliente\n};\n\nreturn { json: updateData };"
       },
-      "id": "process-cae-response",
-      "name": "Procesar Respuesta CAE",
+      "id": "generate-qr",
+      "name": "Generar QR y Preparar Datos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [1340, 300]
@@ -148,7 +133,7 @@
           "parameters": [
             {
               "name": "body",
-              "value": "={\n  \"cae\": \"{{ $json.cae }}\",\n  \"fecha_vencimiento_cae\": \"{{ $json.fecha_vencimiento_cae }}\",\n  \"estado\": \"{{ $json.estado }}\",\n  \"cliente_razon_social\": \"{{ $json.cliente_razon_social }}\",\n  \"cuit_cliente\": \"{{ $json.cuit_cliente }}\",\n  \"total\": {{ $json.total }},\n  \"fecha_emision\": \"{{ $json.fecha_emision }}\",\n  \"updated_at\": \"{{ new Date().toISOString() }}\"\n}"
+              "value": "={\n  \"cae\": \"{{ $json.cae }}\",\n  \"fecha_vencimiento_cae\": \"{{ $json.fecha_vencimiento_cae }}\",\n  \"estado\": \"{{ $json.estado }}\",\n  \"numero_comprobante\": \"{{ $json.numero_comprobante }}\",\n  \"total\": {{ $json.total }},\n  \"fecha_emision\": \"{{ $json.fecha_emision }}\",\n  \"qr_code\": \"{{ $json.qr_code }}\",\n  \"updated_at\": \"{{ new Date().toISOString() }}\"\n}"
             }
           ]
         },
@@ -162,86 +147,97 @@
       "id": "update-supabase",
       "name": "Actualizar Supabase",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
       "position": [1560, 300]
     },
     {
       "parameters": {
-        "resource": "email",
-        "operation": "send",
-        "fromEmail": "{{ $json.email_cliente || 'facturacion@tuempresa.com' }}",
-        "toEmail": "{{ $json.email_cliente || 'cliente@example.com' }}",
-        "subject": "Factura {{ $json.factura_id }} - {{ $json.cliente_razon_social }}",
-        "emailType": "html",
-        "message": "<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Factura {{ $json.factura_id }}</title>\n    <style>\n        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }\n        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }\n        .details { margin: 20px 0; }\n        .total { font-size: 18px; font-weight: bold; color: #28a745; }\n        .footer { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; }\n    </style>\n</head>\n<body>\n    <div class=\"header\">\n        <h1>Factura {{ $json.factura_id }}</h1>\n        <p><strong>Cliente:</strong> {{ $json.cliente_razon_social }}</p>\n        <p><strong>CUIT:</strong> {{ $json.cuit_cliente }}</p>\n        <p><strong>Fecha:</strong> {{ $json.fecha_emision }}</p>\n    </div>\n    \n    <div class=\"details\">\n        <p><strong>CAE:</strong> {{ $json.cae }}</p>\n        <p><strong>Vencimiento CAE:</strong> {{ $json.fecha_vencimiento_cae }}</p>\n    </div>\n    \n    <div class=\"total\">\n        <p><strong>Total:</strong> ${{ $json.total.toLocaleString('es-AR') }}</p>\n    </div>\n    \n    <div class=\"footer\">\n        <p>Esta factura ha sido emitida electrónicamente y es válida para todos los efectos legales.</p>\n        <p>Gracias por su confianza.</p>\n    </div>\n</body>\n</html>"
+        "html": "<!DOCTYPE html>\n<html>\n<head>\n\t<title>Factura {{ $json.numero_comprobante }}</title>\n\t<style type=\"text/css\">\n\t\t*{\n\t\t\tbox-sizing: border-box;\n\t\t\t-webkit-user-select: none;\n\t\t\t-moz-user-select: none;\n\t\t\t-ms-user-select: none;\n\t\t\tuser-select: none;\n\t\t}\n\t\t.bill-container{\n\t\t\twidth: 750px;\n\t\t\tposition: absolute;\n\t\t\tleft:0;\n\t\t\tright: 0;\n\t\t\tmargin: auto;\n\t\t\tborder-collapse: collapse;\n\t\t\tfont-family: sans-serif;\n\t\t\tfont-size: 13px;\n\t\t}\n\t\t.bill-emitter-row td{\n\t\t\twidth: 50%;\n\t\t\tborder-bottom: 1px solid; \n\t\t\tpadding-top: 10px;\n\t\t\tpadding-left: 10px;\n\t\t\tvertical-align: top;\n\t\t}\n\t\t.bill-emitter-row{\n\t\t\tposition: relative;\n\t\t}\n\t\t.bill-emitter-row td:nth-child(2){\n\t\t\tpadding-left: 60px;\n\t\t}\n\t\t.bill-emitter-row td:nth-child(1){\n\t\t\tpadding-right: 60px;\n\t\t}\n\t\t.bill-type{\n\t\t\tborder: 1px solid;\n\t\t\tborder-top: 1px solid; \n\t\t\tborder-bottom: 1px solid; \n\t\t\tmargin-right: -30px;\n\t\t\tbackground: white;\n\t\t\twidth: 60px;\n\t\t\theight: 50px;\n\t\t\tposition: absolute;\n\t\t\tleft: 0;\n\t\t\tright: 0;\n\t\t\ttop: -1px;\n\t\t\tmargin: auto;\n\t\t\ttext-align: center;\n\t\t\tfont-size: 40px;\n\t\t\tfont-weight: 600;\n\t\t}\n\t\t.text-lg{\n\t\t\tfont-size: 30px;\n\t\t}\n\t\t.text-center{\n\t\t\ttext-align: center;\n\t\t}\n\t\t.col-2{\n\t\t\twidth: 16.66666667%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-3{\n\t\t\twidth: 25%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-4{\n\t\t\twidth: 33.3333333%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-5{\n\t\t\twidth: 41.66666667%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-6{\n\t\t\twidth: 50%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-8{\n\t\t\twidth: 66.66666667%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.col-10{\n\t\t\twidth: 83.33333333%;\n\t\t\tfloat: left;\n\t\t}\n\t\t.row{\n\t\t\toverflow: hidden;\n\t\t}\n\t\t.margin-b-0{\n\t\t\tmargin-bottom: 0px;\n\t\t}\n\t\t.bill-row td{\n\t\t\tpadding-top: 5px\n\t\t}\n\t\t.bill-row td > div{\n\t\t\tborder-top: 1px solid; \n\t\t\tborder-bottom: 1px solid; \n\t\t\tmargin: 0 -1px 0 -2px;\n\t\t\tpadding: 0 10px 13px 10px;\n\t\t}\n\t\t.row-details table {\n\t\t\tborder-collapse: collapse;\n\t\t\twidth: 100%;\n\t\t}\n\t\t.row-details td > div, .row-qrcode td > div{\n\t\t\tborder: 0;\n\t\t\tmargin: 0 -1px 0 -2px;\n\t\t\tpadding: 0;\n\t\t}\n\t\t.row-details table td{\n\t\t\tpadding: 5px;\n\t\t}\n\t\t.row-details table tr:nth-child(1){\n\t\t\tborder-top: 1px solid; \n\t\t\tborder-bottom: 1px solid; \n\t\t\tbackground: #c0c0c0;\n\t\t\tfont-weight: bold;\n\t\t\ttext-align: center;\n\t\t}\n\t\t.row-details table tr +  tr{\n\t\t\tborder-top: 1px solid #c0c0c0; \n\t\t}\n\t\t.text-right{\n\t\t\ttext-align: right;\n\t\t}\n\t\t.margin-b-10 {\n\t\t\tmargin-bottom: 10px;\n\t\t}\n\t\t.total-row td > div{\n\t\t\tborder-width: 2px;\n\t\t}\n\t\t.row-qrcode td{\n\t\t\tpadding: 10px;\n\t\t}\t\t\n\t\t#qrcode {\n\t\t\twidth: 50%\n\t\t}\n\t</style>\n</head>\n<body>\n\t<table class=\"bill-container\">\n\t\t<tr class=\"bill-emitter-row\">\n\t\t\t<td>\n\t\t\t\t<div class=\"bill-type\">\n\t\t\t\t\t{{ $json.tipo_factura }}\n\t\t\t\t</div>\n\t\t\t\t<div class=\"text-lg text-center\">\n\t\t\t\t\t{{ $json.empresa_razon_social }}\n\t\t\t\t</div>\n\t\t\t\t<p><strong>Razón social:</strong> {{ $json.empresa_razon_social }}</p>\n\t\t\t\t<p><strong>Domicilio Comercial:</strong> {{ $json.empresa_domicilio }}</p>\n\t\t\t\t<p><strong>Condición Frente al IVA:</strong> {{ $json.empresa_condicion_iva }}</p>\n\t\t\t</td>\n\t\t\t<td>\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"text-lg\">\n\t\t\t\t\t\tFactura\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"row\">\n\t\t\t\t\t\t<p class=\"col-6 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Punto de Venta: {{ $json.punto_venta.toString().padStart(4, '0') }}</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-6 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Comp. Nro: {{ $json.numero_comprobante }}</strong> \n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t\t<p><strong>Fecha de Emisión:</strong> {{ $json.fecha_emision }}</p>\n\t\t\t\t\t<p><strong>CUIT:</strong> {{ $json.afip_cuit }}</p>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row\">\n\t\t\t<td colspan=\"2\">\n\t\t\t\t<div class=\"row\">\n\t\t\t\t\t<p class=\"col-4 margin-b-0\">\n\t\t\t\t\t\t<strong>Período Facturado Desde: </strong>{{ $json.fecha_emision }}\n\t\t\t\t\t</p>\n\t\t\t\t\t<p class=\"col-3 margin-b-0\">\n\t\t\t\t\t\t<strong>Hasta: </strong>{{ $json.fecha_emision }}\n\t\t\t\t\t</p>\n\t\t\t\t\t<p class=\"col-5 margin-b-0\">\n\t\t\t\t\t\t<strong>Fecha de Vto. para el pago: </strong>{{ $json.fecha_emision }}\n\t\t\t\t\t</p>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row\">\n\t\t\t<td colspan=\"2\">\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"row\">\n\t\t\t\t\t\t<p class=\"col-4 margin-b-0\">\n\t\t\t\t\t\t\t<strong>CUIL/CUIT: </strong>{{ $json.cuit_cliente }}\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-8 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Apellido y Nombre / Razón social: </strong>{{ $json.nombre_cliente }}\n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"row\">\n\t\t\t\t\t\t<p class=\"col-6 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Condición Frente al IVA: </strong>Consumidor final\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-6 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Domicilio: </strong>Domicilio del cliente\n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t\t<p>\n\t\t\t\t\t\t<strong>Condicion de venta: </strong>Efectivo\n\t\t\t\t\t</p>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row row-details\">\n\t\t\t<td colspan=\"2\">\n\t\t\t\t<div>\n\t\t\t\t\t<table>\n\t\t\t\t\t\t<tr>\n\t\t\t\t\t\t\t<td>Código</td>\n\t\t\t\t\t\t\t<td>Producto / Servicio</td>\n\t\t\t\t\t\t\t<td>Cantidad</td>\n\t\t\t\t\t\t\t<td>U. Medida</td>\n\t\t\t\t\t\t\t<td>Precio Unit.</td>\n\t\t\t\t\t\t\t<td>% Bonif.</td>\n\t\t\t\t\t\t\t<td>Imp. Bonif.</td>\n\t\t\t\t\t\t\t<td>Subtotal</td>\n\t\t\t\t\t\t</tr>\n\t\t\t\t\t\t{{ $json.productos.map(producto => `\n\t\t\t\t\t\t\t<tr>\n\t\t\t\t\t\t\t\t<td>${producto.sku || '001'}</td>\n\t\t\t\t\t\t\t\t<td>${producto.nombre || 'Producto'}</td>\n\t\t\t\t\t\t\t\t<td>${producto.cantidad || 1},00</td>\n\t\t\t\t\t\t\t\t<td>Unidad</td>\n\t\t\t\t\t\t\t\t<td>${producto.precio_unitario || producto.subtotal || 0},00</td>\n\t\t\t\t\t\t\t\t<td>0,00</td>\n\t\t\t\t\t\t\t\t<td>0,00</td>\n\t\t\t\t\t\t\t\t<td>${producto.subtotal || producto.precio_unitario || 0},00</td>\n\t\t\t\t\t\t\t</tr>\n\t\t\t\t\t\t`).join('') }}\n\t\t\t\t\t</table>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row total-row\">\n\t\t\t<td colspan=\"2\">\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"row text-right\">\n\t\t\t\t\t\t<p class=\"col-10 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Subtotal: $</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-2 margin-b-0\">\n\t\t\t\t\t\t\t<strong>{{ $json.subtotal }},00</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"row text-right\">\n\t\t\t\t\t\t<p class=\"col-10 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Importe Otros Tributos: $</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-2 margin-b-0\">\n\t\t\t\t\t\t\t<strong>0,00</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"row text-right\">\n\t\t\t\t\t\t<p class=\"col-10 margin-b-0\">\n\t\t\t\t\t\t\t<strong>Importe total: $</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t\t<p class=\"col-2 margin-b-0\">\n\t\t\t\t\t\t\t<strong>{{ $json.total }},00</strong>\n\t\t\t\t\t\t</p>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row row-details\">\n\t\t\t<td>\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"row\">\n\t\t\t\t\t\t<img id=\"qrcode\" src=\"{{ 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent($json.qr_code) }}\">\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t\t<td>\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"row text-right margin-b-10\">\n\t\t\t\t\t\t<strong>CAE Nº:&nbsp;</strong> {{ $json.cae }}\n\t\t\t\t\t</div>\n\t\t\t\t\t<div class=\"row text-right\">\n\t\t\t\t\t\t<strong>Fecha de Vto. de CAE:&nbsp;</strong> {{ $json.fecha_vencimiento_cae }}\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t\t<tr class=\"bill-row row-details\">\n\t\t\t<td colspan=\"2\">\n\t\t\t\t<div>\n\t\t\t\t\t<div class=\"row text-center margin-b-10\">\n\t\t\t\t\t\t<span class=\"vertical-align:bottom\">Generado con ContaPYME</span>\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t</td>\n\t\t</tr>\n\t</table>\n</body>\n</html>"
       },
-      "id": "enviar-email",
-      "name": "Enviar Email",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 1,
+      "id": "generate-html",
+      "name": "Generar HTML",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
       "position": [1780, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Log de éxito\nconst facturaData = $('Procesar Respuesta CAE').first().json;\nconst emailResult = $('Enviar Email').first().json;\n\nconst logData = {\n  workflow_name: 'Emitir Factura',\n  factura_id: facturaData.factura_id,\n  cae: facturaData.cae,\n  cliente: facturaData.cliente_razon_social,\n  total: facturaData.total,\n  email_sent: emailResult ? true : false,\n  status: 'success',\n  timestamp: new Date().toISOString(),\n  execution_id: $execution.id,\n  \n  // Credenciales para guardar log\n  supabase_url: facturaData.supabase_url,\n  supabase_anon_key: facturaData.supabase_anon_key\n};\n\nreturn { json: logData };"
+        "method": "POST",
+        "url": "https://app.afipsdk.com/api/v1/pdfs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"html\": {{ JSON.stringify($json.html) }},\n  \"file_name\": \"Factura_{{ $('Generar QR y Preparar Datos').first().json.numero_comprobante }}\",\n  \"options\": {\n    \"width\": 8,\n    \"marginLeft\": 0.4, \n    \"marginRight\": 0.4, \n    \"marginTop\": 0.4, \n    \"marginBottom\": 0.4 \n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
       },
-      "id": "log-success",
-      "name": "Log de Éxito",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "create-pdf",
+      "name": "Crear PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [2000, 300]
     },
     {
       "parameters": {
-        "url": "={{ $json.supabase_url }}/rest/v1/workflow_logs",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "apikey",
-              "value": "={{ $json.supabase_anon_key }}"
-            },
-            {
-              "name": "Authorization",
-              "value": "Bearer {{ $json.supabase_anon_key }}"
-            },
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "body",
-              "value": "={\n  \"workflow_name\": \"{{ $json.workflow_name }}\",\n  \"factura_id\": \"{{ $json.factura_id }}\",\n  \"cae\": \"{{ $json.cae }}\",\n  \"cliente\": \"{{ $json.cliente }}\",\n  \"total\": {{ $json.total }},\n  \"email_sent\": {{ $json.email_sent }},\n  \"status\": \"{{ $json.status }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"execution_id\": \"{{ $json.execution_id }}\"\n}"
-            }
-          ]
-        }
+        "url": "={{ $json.file }}",
+        "options": {}
       },
-      "id": "save-log",
-      "name": "Guardar Log",
+      "id": "download-pdf",
+      "name": "Descargar PDF",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "typeVersion": 4.2,
       "position": [2220, 300]
     },
     {
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={\n  \"success\": true,\n  \"factura_id\": $('Procesar Respuesta CAE').first().json.factura_id,\n  \"cae\": $('Procesar Respuesta CAE').first().json.cae,\n  \"cliente\": $('Procesar Respuesta CAE').first().json.cliente_razon_social,\n  \"total\": $('Procesar Respuesta CAE').first().json.total,\n  \"email_sent\": $('Enviar Email').first().json ? true : false,\n  \"timestamp\": new Date().toISOString()\n}"
+        "authentication": "oAuth2",
+        "fromEmail": "{{ $env.GMAIL_FROM }}",
+        "toEmail": "={{ $('Generar QR y Preparar Datos').first().json.email_cliente }}",
+        "subject": "Factura {{ $('Generar QR y Preparar Datos').first().json.numero_comprobante }} - {{ $('Generar QR y Preparar Datos').first().json.empresa_razon_social }}",
+        "emailType": "html",
+        "message": "Adjunto encontrará la factura {{ $('Generar QR y Preparar Datos').first().json.numero_comprobante }} por un total de ${{ $('Generar QR y Preparar Datos').first().json.total }}.\n\nCAE: {{ $('Generar QR y Preparar Datos').first().json.cae }}\nFecha de vencimiento CAE: {{ $('Generar QR y Preparar Datos').first().json.fecha_vencimiento_cae }}\n\nSaludos cordiales,\n{{ $('Generar QR y Preparar Datos').first().json.empresa_razon_social }}",
+        "attachments": {
+          "parameters": [
+            {
+              "name": "Factura_{{ $('Generar QR y Preparar Datos').first().json.numero_comprobante }}.pdf",
+              "data": "={{ $('Descargar PDF').first().json }}"
+            }
+          ]
+        },
+        "options": {}
       },
-      "id": "response-success",
-      "name": "Respuesta de Éxito",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
+            "id": "send-email",
+      "name": "Enviar Email con Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
       "position": [2440, 300]
     },
+    {
+      "parameters": {
+        "operation": "upload",
+        "fileId": "root",
+        "name": "=Factura_{{ $('Generar QR y Preparar Datos').first().json.numero_comprobante }}_{{ $('Generar QR y Preparar Datos').first().json.empresa_razon_social.replace(/[^a-zA-Z0-9]/g, '_') }}.pdf",
+        "binaryData": true,
+        "binaryPropertyName": "data",
+        "parents": "={{ $env.GOOGLE_DRIVE_FOLDER_ID || '' }}"
+      },
+      "id": "upload-google-drive",
+      "name": "Subir a Google Drive",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [2660, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Factura emitida exitosamente\",\n  \"factura_id\": $('Generar QR y Preparar Datos').first().json.factura_id,\n  \"numero_comprobante\": $('Generar QR y Preparar Datos').first().json.numero_comprobante,\n  \"cae\": $('Generar QR y Preparar Datos').first().json.cae,\n  \"fecha_vencimiento_cae\": $('Generar QR y Preparar Datos').first().json.fecha_vencimiento_cae,\n  \"total\": $('Generar QR y Preparar Datos').first().json.total,\n  \"qr_code\": $('Generar QR y Preparar Datos').first().json.qr_code,\n  \"pdf_url\": $('Crear PDF').first().json.file,\n  \"google_drive_url\": $('Subir a Google Drive').first().json.webViewLink,\n  \"google_drive_id\": $('Subir a Google Drive').first().json.id,\n  \"email_sent\": {{ $('Generar QR y Preparar Datos').first().json.email_cliente ? 'true' : 'false' }},\n  \"email_cliente\": $('Generar QR y Preparar Datos').first().json.email_cliente,\n  \"estado\": \"emitida\",\n  \"empresa_razon_social\": $('Generar QR y Preparar Datos').first().json.empresa_razon_social,\n  \"fecha_emision\": $('Generar QR y Preparar Datos').first().json.fecha_emision,\n  \"timestamp\": new Date().toISOString()\n}"
+        },
+        "id": "response-success",
+        "name": "Respuesta de Éxito",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [2880, 300]
+      },
     {
       "parameters": {
         "respondWith": "json",
@@ -254,7 +250,7 @@
       "name": "Respuesta de Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [2440, 500]
+      "position": [2660, 500]
     }
   ],
   "connections": {
@@ -273,47 +269,47 @@
       "main": [
         [
           {
-            "node": "Consultar CUIT AFIP",
+            "node": "Obtener Autorización AFIP",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Consultar CUIT AFIP": {
+    "Obtener Autorización AFIP": {
       "main": [
         [
           {
-            "node": "Procesar Respuesta AFIP",
+            "node": "Obtener Último Número",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Procesar Respuesta AFIP": {
+    "Obtener Último Número": {
       "main": [
         [
           {
-            "node": "Generar CAE",
+            "node": "Crear Voucher",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Generar CAE": {
+    "Crear Voucher": {
       "main": [
         [
           {
-            "node": "Procesar Respuesta CAE",
+            "node": "Generar QR y Preparar Datos",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Procesar Respuesta CAE": {
+    "Generar QR y Preparar Datos": {
       "main": [
         [
           {
@@ -328,36 +324,58 @@
       "main": [
         [
           {
-            "node": "Enviar Email",
+            "node": "Generar HTML",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Enviar Email": {
+    "Generar HTML": {
       "main": [
         [
           {
-            "node": "Log de Éxito",
+            "node": "Crear PDF",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Log de Éxito": {
+    "Crear PDF": {
       "main": [
         [
           {
-            "node": "Guardar Log",
+            "node": "Descargar PDF",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Guardar Log": {
+    "Descargar PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar Email con Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Email con Gmail": {
+      "main": [
+        [
+          {
+            "node": "Subir a Google Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Subir a Google Drive": {
       "main": [
         [
           {
@@ -384,5 +402,5 @@
   ],
   "triggerCount": 1,
   "updatedAt": "2024-01-01T00:00:00.000Z",
-  "versionId": "1"
+  "versionId": "5"
 } 

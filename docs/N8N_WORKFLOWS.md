@@ -1,361 +1,390 @@
-# Workflows de n8n para ContaPYME
+# N8N Workflows para ContaPYME
 
 ## 📋 Índice
 
 1. [Configuración Inicial](#configuración-inicial)
-2. [Workflow: Emisión de Factura](#workflow-emisión-de-factura)
-3. [Variables de Entorno](#variables-de-entorno)
-4. [Instalación y Despliegue](#instalación-y-despliegue)
-5. [Testing](#testing)
-6. [Monitoreo](#monitoreo)
-
----
+2. [Workflow: Emitir Factura con AFIP](#workflow-emitir-factura-con-afip)
+3. [Configuración de Certificados AFIP](#configuración-de-certificados-afip)
+4. [Configuración de Variables de Entorno](#configuración-de-variables-de-entorno)
+5. [Ejemplos de Uso](#ejemplos-de-uso)
+6. [Solución de Problemas](#solución-de-problemas)
 
 ## 🔧 Configuración Inicial
 
-### **1. Instalar n8n**
+### Variables de Entorno en n8n
 
-#### **Opción A: n8n Cloud (Recomendado)**
+Configura las siguientes variables en tu instancia de n8n:
+
 ```bash
-# 1. Ir a https://n8n.cloud
-# 2. Crear cuenta gratuita
-# 3. Crear workspace
-# 4. Copiar URL del workspace
+# Variables globales de n8n (NO contienen datos específicos del usuario)
+N8N_API_KEY=tu_api_key_de_n8n
+N8N_WEBHOOK_URL=https://tu-instancia-n8n.com
+
+# Configuración de Gmail (para envío de facturas)
+GMAIL_FROM=facturacion@tuempresa.com
+
+# Configuración de Google Drive (para almacenar PDFs)
+GOOGLE_DRIVE_FOLDER_ID=1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms
 ```
 
-#### **Opción B: n8n Local**
+### Configuración de Gmail en n8n
+
+1. **Crear credenciales de Gmail:**
+   - Ve a Settings → Credentials en n8n
+   - Crea una nueva credencial de tipo "Gmail"
+   - Configura OAuth2 con tu cuenta de Gmail
+   - Usa la variable `GMAIL_FROM` para el email remitente
+
+2. **Configurar App Password (recomendado):**
+   - Activa 2FA en tu cuenta de Gmail
+   - Genera una "App Password" específica para n8n
+   - Usa esta contraseña en lugar de tu contraseña normal
+
+## Configuración de Google Drive en n8n
+
+1. **Crear credenciales de Google Drive:**
+   - Ve a Settings → Credentials en n8n
+   - Crea una nueva credencial de tipo "Google Drive"
+   - Configura OAuth2 con tu cuenta de Google
+   - Asegúrate de tener permisos de escritura en Drive
+
+2. **Configurar carpeta de destino:**
+   - Crea una carpeta en Google Drive para las facturas
+   - Copia el ID de la carpeta (está en la URL cuando abres la carpeta)
+   - Configura la variable `GOOGLE_DRIVE_FOLDER_ID` en n8n
+
+### Variables de Entorno en ContaPYME (.env.local)
+
 ```bash
-# Instalar n8n localmente
-npm install n8n -g
-n8n start
+# Credenciales específicas del usuario (NO en n8n)
+VITE_AFIP_TOKEN=tu_token_afip
+VITE_AFIP_SIGN=tu_sign_afip
+VITE_AFIP_CUIT=tu_cuit_afip
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_anon_key_supabase
+
+# URL del webhook de n8n
+VITE_N8N_WEBHOOK_URL=https://tu-instancia-n8n.com
 ```
 
-### **2. Configurar Variables de Entorno**
+## 🚀 Workflow: Emitir Factura con AFIP
 
-En tu workspace de n8n, ve a **Settings → Variables** y agrega **SOLO las variables globales**:
+### Características
+- ✅ **AFIP SDK Integration**: Usa la API oficial de AFIP SDK
+- ✅ **QR Code Oficial**: Genera QR según especificaciones de AFIP
+- ✅ **PDF Profesional**: Crea PDF con estilos oficiales
+- ✅ **Email Automático con Gmail**: Envía factura por email al cliente
+- ✅ **Numeración Automática**: Obtiene último número autorizado
+- ✅ **Multi-tenant**: Cada usuario usa sus propias credenciales
+- ✅ **Respuesta Completa**: Informa al frontend sobre el resultado
 
-```env
-# n8n Configuration (Solo estas variables globales)
-N8N_API_KEY=tu_api_key_secreta_global
-N8N_BASIC_AUTH_ACTIVE=true
-N8N_BASIC_AUTH_USER=admin
-N8N_BASIC_AUTH_PASSWORD=tu_password
+### Flujo del Workflow
+```
+Webhook → Validar Datos → Obtener Autorización → Obtener Último Número → 
+Crear Voucher → Generar QR → Actualizar Supabase → Generar HTML → 
+Crear PDF → Descargar PDF → Enviar Email con Gmail → Subir a Google Drive → Respuesta Completa
 ```
 
-**Las credenciales de AFIP y Supabase vienen desde ContaPYME de cada usuario.**
+### Flujo de Datos
 
----
+#### **1. ContaPYME → n8n:**
+- Frontend envía datos de la factura al webhook de n8n
+- Incluye credenciales específicas del usuario (AFIP + Supabase)
+- **Nuevo**: Incluye `email_cliente` y `nombre_cliente` para envío automático
 
-## 🔥 Workflow: Emisión de Factura
+#### **2. n8n → AFIP:**
+- Obtiene autorización y crea voucher
+- Genera QR según especificaciones oficiales
 
-### **📊 Descripción**
-Workflow completo para emitir facturas electrónicas con integración AFIP, generación de CAE, envío de email y actualización de base de datos.
+#### **3. n8n → Supabase:**
+- Actualiza la factura con CAE, QR, estado, etc.
+- Los datos quedan disponibles para ContaPYME
 
-### **🔄 Flujo del Workflow**
-```
-Webhook → Validación → AFIP → CAE → Supabase → Email → Log → Respuesta
-```
+#### **4. n8n → Gmail:**
+- Genera PDF profesional
+- Envía email con PDF adjunto al cliente (solo si `email_cliente` está presente)
 
-### **📥 Datos de Entrada**
+#### **5. n8n → Google Drive:**
+- Sube el PDF a Google Drive
+- Guarda el enlace para acceso posterior
+- Los contadores pueden descargar las facturas desde ContaPYME
+
+#### **6. n8n → ContaPYME:**
+- Responde al frontend con todos los datos
+- Incluye enlaces de Google Drive para descarga
+- ContaPYME valida la respuesta y muestra confirmación al usuario
+
+### Datos de Entrada
 ```json
 {
-  "factura_id": "12345",
+  "factura_id": "uuid-de-la-factura",
   "cuit_cliente": "20-12345678-9",
-  "total": 1000.00,
-  "subtotal": 826.45,
-  "iva": 173.55,
+  "total": 1210.00,
+  "subtotal": 1000.00,
+  "iva": 210.00,
   "fecha": "2024-01-01",
-  "tipo_factura": "A",
+  "tipo_factura": "B",
   "punto_venta": 1,
   "productos": [
     {
-      "sku": "PROD001",
+      "sku": "001",
       "nombre": "Producto 1",
-      "cantidad": 2,
-      "precio_unitario": 500.00,
+      "cantidad": 1,
+      "precio_unitario": 1000.00,
       "subtotal": 1000.00
     }
   ],
-  
-  // Credenciales del usuario (agregadas automáticamente por ContaPYME)
-  "afip_token": "token_del_usuario",
-  "afip_sign": "sign_del_usuario", 
-  "afip_cuit": "20123456789",
-  "supabase_url": "https://usuario.supabase.co",
-  "supabase_anon_key": "key_del_usuario"
+  "empresa_razon_social": "Mi Empresa S.A.",
+  "empresa_domicilio": "Calle 123, Ciudad",
+  "empresa_condicion_iva": "Responsable Inscripto",
+  "email_cliente": "cliente@email.com",
+  "nombre_cliente": "Juan Pérez"
 }
 ```
 
-### **📤 Respuesta de Éxito**
+### Manejo del Email del Cliente
+
+#### **Clientes Habituales:**
+- Los datos del cliente se pueden cargar previamente en la base de datos
+- El email se autocompleta desde los datos del cliente
+- Se puede editar manualmente si es necesario
+
+#### **Clientes Casuales:**
+- Se ingresa el email manualmente en el formulario
+- El campo es opcional pero recomendado para envío automático
+- Si no se proporciona email, la factura se genera pero no se envía por email
+
+#### **Validación:**
+- El email se valida en el frontend antes del envío
+- Si el email es inválido, se muestra una advertencia
+- El workflow de n8n verifica que el email sea válido antes del envío
+
+### Respuesta de Éxito
 ```json
 {
   "success": true,
-  "factura_id": "12345",
+  "message": "Factura emitida exitosamente",
+  "factura_id": "uuid-de-la-factura",
+  "numero_comprobante": "0001-00000001",
   "cae": "12345678901234",
-  "cliente": "EMPRESA SA",
-  "total": 1000.00,
+  "fecha_vencimiento_cae": "20241231",
+  "total": 1210.00,
+  "qr_code": "https://www.afip.gob.ar/fe/qr/?p=...",
+  "pdf_url": "https://app.afipsdk.com/api/v1/pdfs/...",
+  "google_drive_url": "https://drive.google.com/file/d/...",
+  "google_drive_id": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms",
   "email_sent": true,
+  "email_cliente": "cliente@email.com",
+  "estado": "emitida",
+  "empresa_razon_social": "Mi Empresa S.A.",
+  "fecha_emision": "2024-01-01",
   "timestamp": "2024-01-01T12:00:00.000Z"
 }
 ```
 
-### **❌ Respuesta de Error**
+### Respuesta de Error
 ```json
 {
   "success": false,
-  "error": "CUIT 20-12345678-9 no válido o inactivo en AFIP",
-  "factura_id": "12345",
+  "error": "Descripción del error",
+  "factura_id": "uuid-de-la-factura",
   "timestamp": "2024-01-01T12:00:00.000Z"
 }
 ```
 
-### **🔧 Pasos del Workflow**
+## 🔐 Configuración de Certificados AFIP
 
-#### **1. Webhook Trigger**
-- **Endpoint:** `/emitir-factura`
-- **Método:** POST
-- **Autenticación:** Header `X-N8N-API-KEY`
+### ⚠️ Importante: Los certificados se crean MANUALMENTE
 
-#### **2. Validar Datos**
-- Validar `factura_id` requerido
-- Validar `cuit_cliente` con formato XX-XXXXXXXX-X
-- Validar `total` mayor a 0
-- Calcular `subtotal` e `iva` si no están presentes
+Los certificados AFIP **NO se crean vía n8n**. Cada usuario debe crear su certificado manualmente siguiendo estos pasos:
 
-#### **3. Consultar CUIT AFIP**
-- Llamar servicio AFIP para validar CUIT
-- Verificar que el contribuyente esté activo
-- Obtener razón social y datos del cliente
+### 1. Crear Certificado (Una sola vez)
 
-#### **4. Generar CAE**
-- Solicitar CAE a AFIP
-- Incluir todos los datos de la factura
-- Procesar respuesta XML
+Usa la librería AFIP SDK en tu entorno local:
 
-#### **5. Actualizar Supabase**
-- Actualizar factura con CAE
-- Cambiar estado a "emitida"
-- Guardar datos del cliente
+```javascript
+// Ejemplo con Node.js
+const Afip = require('afip.js');
 
-#### **6. Enviar Email**
-- Generar email HTML con datos de la factura
-- Incluir CAE y fecha de vencimiento
-- Enviar al cliente
+const afip = new Afip({ 
+    CUIT: 20123456789,
+    production: false // true para producción
+});
 
-#### **7. Log de Éxito**
-- Registrar ejecución exitosa
-- Guardar métricas en Supabase
+// Crear certificado (¡Paciencia! Esto toma unos cuantos segundos)
+const res = await afip.CreateCert(
+    '20123456789', // username (generalmente el mismo CUIT)
+    'tu_password_arca', // password de ARCA
+    'contapyme_cert' // alias para el certificado
+);
 
----
+console.log('Certificado:', res.cert);
+console.log('Key:', res.key);
 
-## 📋 Variables de Entorno Detalladas
-
-### **AFIP Configuration**
-```env
-# Token de autenticación AFIP
-AFIP_TOKEN=tu_token_largo_de_afip
-
-# Sign de autenticación AFIP  
-AFIP_SIGN=tu_sign_de_afip
-
-# CUIT de la empresa
-AFIP_CUIT=20123456789
+// ⚠️ IMPORTANTE: Guarda el cert y key, la librería no los guarda automáticamente
 ```
 
-### **Email Configuration**
-```env
-# Email de origen
-SMTP_FROM=facturacion@tuempresa.com
+### 2. Autorizar Web Service (Una sola vez)
 
-# Configuración SMTP
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu_email@gmail.com
-SMTP_PASS=tu_password_de_aplicacion
+```javascript
+// Autorizar web service de facturación
+const auth = await afip.createWSAuth(
+    '20123456789', // username
+    'tu_password_arca', // password
+    'contapyme_cert', // alias del certificado
+    'wsfe' // web service de facturación electrónica
+);
+
+console.log('Autorización:', auth);
 ```
 
-### **n8n Configuration**
-```env
-# API Key para autenticación
-N8N_API_KEY=tu_api_key_secreta_muy_larga
+### 3. Obtener Token y Sign
+
+Una vez configurado el certificado, obtén el token y sign:
+
+```javascript
+// Obtener token y sign para usar en ContaPYME
+const ta = await afip.ElectronicBilling.getTokenAuthorization();
+
+console.log('Token:', ta.token);
+console.log('Sign:', ta.sign);
 ```
 
-### **Supabase Configuration**
-```env
-# URL del proyecto Supabase
-SUPABASE_URL=https://tu-proyecto.supabase.co
+### 4. Configurar en ContaPYME
 
-# Clave anónima de Supabase
-SUPABASE_ANON_KEY=tu_clave_anonima_larga
-```
-
----
-
-## 🚀 Instalación y Despliegue
-
-### **1. Importar Workflow**
-
-#### **En n8n Cloud:**
-1. Ve a tu workspace
-2. Haz clic en **Import from file**
-3. Selecciona `n8n-workflows/emitir-factura.json`
-4. Haz clic en **Import**
-
-#### **En n8n Local:**
-1. Copia el contenido de `emitir-factura.json`
-2. Ve a **Workflows** en n8n
-3. Haz clic en **Import from JSON**
-4. Pega el contenido y haz clic en **Import**
-
-### **2. Configurar Variables**
-
-1. Ve a **Settings → Variables**
-2. Agrega todas las variables de entorno listadas arriba
-3. Haz clic en **Save**
-
-### **3. Activar Workflow**
-
-1. Haz clic en **Activate** en el workflow
-2. Copia la URL del webhook
-3. Configura la URL en ContaPYME
-
-### **4. Configurar ContaPYME**
-
-Cada usuario configura su archivo `.env.local` con sus propias credenciales:
-
-```env
-# n8n Configuration (Común para todos)
-VITE_N8N_BASE_URL=https://tu-n8n-workspace.n8n.cloud
-VITE_N8N_API_KEY=tu_api_key_secreta_global
-
-# Credenciales específicas del usuario
-VITE_AFIP_TOKEN=token_del_usuario
-VITE_AFIP_SIGN=sign_del_usuario
-VITE_AFIP_CUIT=20123456789
-VITE_SUPABASE_URL=https://usuario.supabase.co
-VITE_SUPABASE_ANON_KEY=key_del_usuario
-```
-
----
-
-## 🧪 Testing
-
-### **1. Test Básico**
+Agrega estos valores a tu `.env.local`:
 
 ```bash
-# Usar curl para probar el webhook
-curl -X POST https://tu-n8n-workspace.n8n.cloud/webhook/emitir-factura \
+VITE_AFIP_TOKEN=tu_token_obtenido
+VITE_AFIP_SIGN=tu_sign_obtenido
+VITE_AFIP_CUIT=20123456789
+```
+
+## ⚙️ Configuración de Variables de Entorno
+
+### Para Desarrollo (Testing)
+```bash
+# En .env.local de ContaPYME
+VITE_AFIP_TOKEN=tu_token_testing
+VITE_AFIP_SIGN=tu_sign_testing
+VITE_AFIP_CUIT=20123456789
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_anon_key_supabase
+VITE_N8N_WEBHOOK_URL=https://tu-instancia-n8n.com
+```
+
+### Para Producción
+```bash
+# En .env.local de ContaPYME
+VITE_AFIP_TOKEN=tu_token_produccion
+VITE_AFIP_SIGN=tu_sign_produccion
+VITE_AFIP_CUIT=20123456789
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_ANON_KEY=tu_anon_key_supabase
+VITE_N8N_WEBHOOK_URL=https://tu-instancia-n8n.com
+```
+
+## 📝 Ejemplos de Uso
+
+### Emitir Factura
+```bash
+curl -X POST https://tu-instancia-n8n.com/webhook/emitir-factura \
   -H "Content-Type: application/json" \
-  -H "X-N8N-API-KEY: tu_api_key_secreta" \
+  -H "X-N8N-API-KEY: tu_api_key" \
   -d '{
-    "factura_id": "TEST001",
+    "factura_id": "123e4567-e89b-12d3-a456-426614174000",
     "cuit_cliente": "20-12345678-9",
-    "total": 1000.00,
-    "subtotal": 826.45,
-    "iva": 173.55,
-    "fecha": "2024-01-01"
+    "total": 1210.00,
+    "subtotal": 1000.00,
+    "iva": 210.00,
+    "tipo_factura": "B",
+    "punto_venta": 1,
+    "productos": [
+      {
+        "sku": "001",
+        "nombre": "Producto 1",
+        "cantidad": 1,
+        "precio_unitario": 1000.00,
+        "subtotal": 1000.00
+      }
+    ],
+    "empresa_razon_social": "Mi Empresa S.A.",
+    "empresa_domicilio": "Calle 123, Ciudad",
+    "empresa_condicion_iva": "Responsable Inscripto",
+    "email_cliente": "cliente@email.com",
+    "nombre_cliente": "Juan Pérez"
   }'
 ```
 
-### **2. Test desde ContaPYME**
+## 🔧 Solución de Problemas
 
-1. Ve a la página de Facturas
-2. Crea una nueva factura
-3. Verifica que se envíe al webhook
-4. Revisa los logs en n8n
+### Error: "Certificado no encontrado"
+- Verificar que el certificado existe con el alias especificado
+- Crear el certificado manualmente usando AFIP SDK
+- Verificar que el token y sign estén actualizados
 
-### **3. Verificar Resultados**
+### Error: "Web service no autorizado"
+- Verificar que el web service esté autorizado para el certificado
+- Autorizar el web service manualmente usando AFIP SDK
 
-1. **En Supabase:** Verificar que la factura tenga CAE
-2. **En Email:** Verificar que se envíe el email
-3. **En Logs:** Verificar que se registre la ejecución
+### Error: "Token expirado"
+- Los tokens de AFIP expiran cada 12 horas
+- El workflow maneja automáticamente la renovación
 
----
-
-## 📊 Monitoreo
-
-### **1. Logs de Ejecución**
-
-En n8n, ve a **Executions** para ver:
-- ✅ Ejecuciones exitosas
-- ❌ Ejecuciones fallidas
-- ⏱️ Tiempo de respuesta
-- 📊 Estadísticas
-
-### **2. Métricas en Supabase**
-
-```sql
--- Ver logs de workflows
-SELECT * FROM workflow_logs 
-WHERE workflow_name = 'Emitir Factura' 
-ORDER BY timestamp DESC;
-
--- Estadísticas de éxito
-SELECT 
-  status,
-  COUNT(*) as total,
-  AVG(EXTRACT(EPOCH FROM (timestamp::timestamp - LAG(timestamp::timestamp) OVER (ORDER BY timestamp)))) as avg_time
-FROM workflow_logs 
-WHERE workflow_name = 'Emitir Factura'
-GROUP BY status;
-```
-
-### **3. Alertas**
-
-Configurar alertas para:
-- ❌ Workflows fallidos
-- ⏱️ Tiempo de respuesta alto
-- 📧 Errores de email
-- 🔗 Problemas de conectividad AFIP
-
----
-
-## 🔧 Troubleshooting
-
-### **Error: "CUIT no válido"**
-- Verificar formato del CUIT (XX-XXXXXXXX-X)
+### Error: "CUIT inválido"
+- Verificar que el CUIT tenga formato XX-XXXXXXXX-X
 - Verificar que el CUIT esté activo en AFIP
-- Verificar credenciales de AFIP
 
-### **Error: "No se pudo generar CAE"**
-- Verificar token y sign de AFIP
-- Verificar que el punto de venta esté habilitado
-- Verificar que no haya duplicados
-
-### **Error: "Email no enviado"**
-- Verificar configuración SMTP
-- Verificar credenciales de email
+### Error: "Email no enviado"
+- Verificar configuración de Gmail en n8n
 - Verificar que el email del cliente sea válido
+- Verificar credenciales de Gmail (OAuth2 o App Password)
+- Verificar que el campo `email_cliente` esté presente en los datos
 
-### **Error: "No se pudo actualizar Supabase"**
-- Verificar credenciales de Supabase
-- Verificar que la tabla exista
-- Verificar permisos RLS
+### Error: "PDF no subido a Google Drive"
+- Verificar configuración de Google Drive en n8n
+- Verificar credenciales de Google Drive (OAuth2)
+- Verificar que la carpeta de destino exista y tenga permisos
+- Verificar la variable `GOOGLE_DRIVE_FOLDER_ID`
 
----
+### Error: "Respuesta incompleta del webhook"
+- Verificar que todos los campos requeridos estén en la respuesta
+- ContaPYME necesita `success`, `message`, `factura_id`, `cae`, etc.
+- Verificar que `google_drive_url` esté presente en la respuesta
 
-## 📈 Próximos Workflows
+## 📚 Recursos Adicionales
 
-### **Fase 2:**
-- [ ] Validación de CUIT independiente
-- [ ] Actualización de Stock
-- [ ] Registro de Pagos
-- [ ] Creación de Clientes
+- [Documentación AFIP SDK](https://docs.afipsdk.com/)
+- [Especificaciones QR AFIP](https://www.afip.gob.ar/fe/qr/documentos/QRespecificaciones.pdf)
+- [Web Services AFIP](https://www.afip.gob.ar/ws/documentacion/ws-factura-electronica.asp)
+- [Crear Certificados AFIP](https://docs.afipsdk.com/recursos/otros-metodos-utiles#crear-certificado)
+- [Configurar Gmail en n8n](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-base.gmail/)
+- [Configurar Google Drive en n8n](https://docs.n8n.io/integrations/builtin/cluster-nodes/sub-nodes/n8n-nodes-base.googleDrive/)
 
-### **Fase 3:**
-- [ ] Alertas de Stock
-- [ ] Envío de WhatsApp
-- [ ] Reportes Automáticos
-- [ ] Conciliación Bancaria
+## 🔄 Actualizaciones
 
----
+### Versión 5.0 (Actual)
+- ✅ Integración completa con AFIP SDK
+- ✅ Generación de QR según especificaciones oficiales
+- ✅ PDF profesional con estilos oficiales
+- ✅ Envío automático de email con Gmail (OAuth2)
+- ✅ Almacenamiento automático en Google Drive
+- ✅ Captura de email del cliente en el frontend
+- ✅ Respuesta completa al frontend con enlaces de Google Drive
+- ✅ Arquitectura multi-tenant
+- ✅ Certificados creados manualmente (proceso correcto)
+- ✅ Flujo de datos completo: ContaPYME → n8n → AFIP → Supabase → Gmail → Google Drive → ContaPYME
 
-## 📞 Soporte
+### Versión 3.0 (Anterior)
+- ❌ HTTP Request para email (complejo)
+- ❌ Respuesta incompleta al frontend
 
-- 📧 **Email:** soporte@contapyme.com
-- 🐛 **Issues:** [GitHub Issues](https://github.com/chelof100/contapyme/issues)
-- 📖 **Documentación:** [docs/](docs/)
+### Versión 2.0 (Anterior)
+- ❌ Workflows innecesarios para certificados
+- ❌ Sin envío de email
+- ❌ Respuesta incompleta al frontend
 
----
-
-**¡El workflow está listo para usar! 🚀** 
+### Versión 1.0 (Inicial)
+- ❌ SOAP directo a AFIP
+- ❌ Sin generación de QR
+- ❌ PDF básico 

@@ -34,6 +34,8 @@ const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, loading }) => {
   
   const [formData, setFormData] = useState({
     cuit_cliente: '',
+    nombre_cliente: '',
+    email_cliente: '',
     tipo_comprobante: '',
     punto_venta: '0001',
     numero_factura: '',
@@ -349,7 +351,7 @@ const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, loading }) => {
           )}
 
           {/* Datos del Cliente */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="cuit_cliente">CUIT del Cliente *</Label>
               <Input
@@ -362,21 +364,45 @@ const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, loading }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tipo_comprobante">Tipo de Comprobante *</Label>
-              <Select 
-                value={formData.tipo_comprobante} 
-                onValueChange={(value) => setFormData({...formData, tipo_comprobante: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Factura A">Factura A</SelectItem>
-                  <SelectItem value="Factura B">Factura B</SelectItem>
-                  <SelectItem value="Factura C">Factura C</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="nombre_cliente">Nombre/Razón Social</Label>
+              <Input
+                id="nombre_cliente"
+                value={formData.nombre_cliente}
+                onChange={(e) => setFormData({...formData, nombre_cliente: e.target.value})}
+                placeholder="Juan Pérez o Empresa S.A."
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="email_cliente">Email del Cliente</Label>
+              <Input
+                id="email_cliente"
+                type="email"
+                value={formData.email_cliente}
+                onChange={(e) => setFormData({...formData, email_cliente: e.target.value})}
+                placeholder="cliente@email.com"
+              />
+              <p className="text-xs text-muted-foreground">
+                Para envío automático de la factura
+              </p>
+            </div>
+          </div>
+
+          {/* Tipo de Comprobante */}
+          <div className="space-y-2">
+            <Label htmlFor="tipo_comprobante">Tipo de Comprobante *</Label>
+            <Select 
+              value={formData.tipo_comprobante} 
+              onValueChange={(value) => setFormData({...formData, tipo_comprobante: value})}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Factura A">Factura A</SelectItem>
+                <SelectItem value="Factura B">Factura B</SelectItem>
+                <SelectItem value="Factura C">Factura C</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Punto de Venta y Número */}
