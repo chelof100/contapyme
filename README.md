@@ -4,14 +4,17 @@ Sistema completo de contabilidad para pequeñas y medianas empresas argentinas, 
 
 ## 🚀 Características
 
-- **Gestión de Facturas:** Creación, edición y seguimiento de facturas
-- **Control de Stock:** Inventario en tiempo real
-- **Gestión de Clientes:** CRM integrado
-- **Reportes Financieros:** Análisis y métricas
-- **Integración AFIP:** Validación automática de CUIT
-- **Dashboard Interactivo:** Monitoreo en tiempo real
-- **Automatizaciones n8n:** Procesos automáticos de negocio
+- **Gestión de Facturas:** Creación, edición y seguimiento de facturas electrónicas
+- **Integración AFIP SDK:** Facturación electrónica con QR oficial y PDF profesional
+- **Control de Stock:** Inventario en tiempo real con alertas automáticas
+- **Gestión de Clientes:** CRM integrado con validación de CUIT
+- **Reportes Financieros:** Análisis y métricas en tiempo real
+- **Dashboard Interactivo:** Monitoreo con analytics inteligente
+- **Automatizaciones n8n:** Workflows automáticos para procesos de negocio
 - **Analytics Inteligente:** Acciones rápidas personalizadas basadas en uso real
+- **Multi-tenant:** Arquitectura para múltiples empresas
+- **Almacenamiento Cloud:** Integración con Google Drive para PDFs
+- **Notificaciones:** Envío automático de facturas por email
 
 ## 🛠️ Tecnologías
 
@@ -66,40 +69,53 @@ VITE_APP_ENVIRONMENT=production
 #### **4.2. Ejecutar Migraciones de Base de Datos**
 En tu proyecto Supabase, ve a **SQL Editor** y ejecuta las siguientes migraciones en orden:
 
-**Migración 1 - Esquema Base:**
+**Migración 1 - Esquema Base Consolidado:**
 ```sql
--- Ejecutar: supabase/migrations/20250724140347_jade_trail.sql
--- Contiene: Tablas principales, funciones y políticas de seguridad
+-- Ejecutar: supabase/migrations/20250101000000_initial_schema.sql
+-- Contiene: Todas las tablas principales, funciones y políticas de seguridad
 ```
 
-**Migración 2 - Configuración Avanzada:**
+**Migración 2 - Analytics Inteligente:**
 ```sql
--- Ejecutar: supabase/migrations/20250724142432_velvet_dew.sql
--- Contiene: Configuraciones adicionales y triggers
+-- Ejecutar: supabase/migrations/20250101000001_user_analytics.sql
+-- Contiene: Sistema de tracking de acciones y preferencias de usuario
 ```
 
-**Migración 3 - Funciones de Negocio:**
+**Migración 3 - Logs de Workflows:**
 ```sql
--- Ejecutar: supabase/migrations/20250725134048_sweet_wind.sql
--- Contiene: Funciones para cálculos y validaciones
+-- Ejecutar: supabase/migrations/20250101000002_workflow_logs.sql
+-- Contiene: Sistema de logs y métricas para workflows n8n
 ```
 
-**Migración 4 - CRM y ERP:**
+**Migración 4 - Integración de Productos:**
 ```sql
--- Ejecutar: supabase/migrations/20250725142246_wispy_coast.sql
--- Contiene: Tablas de CRM y gestión empresarial
+-- Ejecutar: supabase/migrations/20250101000003_factura_productos.sql
+-- Contiene: Integración de productos en facturas y control de stock
 ```
 
-**Migración 5 - Monitoreo:**
+**Migración 5 - Autenticación de Usuarios:**
 ```sql
--- Ejecutar: supabase/migrations/20250728033535_wooden_grass.sql
--- Contiene: Sistema de monitoreo y logs
+-- Ejecutar: supabase/migrations/20250101000004_users_auth.sql
+-- Contiene: Sistema de autenticación y gestión de usuarios
 ```
 
-**Migración 6 - Integración Final:**
+**Migración 6 - Tablas CRM:**
 ```sql
--- Ejecutar: supabase/migrations/20250728120000_factura_productos_integration.sql
--- Contiene: Integración completa entre módulos
+-- Ejecutar: supabase/migrations/20250101000005_crm_tables.sql
+-- Contiene: Tablas de CRM y gestión de clientes
+```
+
+**Migración 7 - Tablas ERP:**
+```sql
+-- Ejecutar: supabase/migrations/20250101000006_erp_tables.sql
+-- Contiene: Tablas de ERP y gestión empresarial
+```
+
+**Migración 8 - Sistema de Configuraciones:**
+```sql
+-- Ejecutar: supabase/migrations/20250101000007_configuration_system.sql
+-- Contiene: Sistema de configuraciones y monitoreo
+```
 ```
 
 **Migración 7 - Analytics de Usuario:**
@@ -187,17 +203,22 @@ n8n se usa para automatizaciones avanzadas. Las siguientes funciones están cone
 3. **Configurar webhooks** en n8n
 4. **Agregar credenciales** en `.env.local`
 
-#### **5.3. Workflows Recomendados:**
+#### **5.3. Workflows Disponibles:**
 ```bash
-# Estructura de webhooks en n8n:
-/webhook/emitir-factura
-/webhook/recibir-factura
-/webhook/crear-orden-compra
-/webhook/registrar-pago
-/webhook/movimiento-stock
-/webhook/alerta-stock
-/webhook/health-check
+# Workflow Implementado:
+/webhook/emitir-factura          # ✅ COMPLETADO - Emisión de facturas con AFIP SDK
+
+# Workflows Pendientes:
+/webhook/actualizar-stock        # 📦 PENDIENTE - Actualización automática de inventario
+/webhook/registrar-pago          # 💰 PENDIENTE - Procesamiento de pagos
+/webhook/alerta-stock            # ⚠️ PENDIENTE - Notificaciones de stock bajo
+/webhook/validar-cuit            # 🔍 PENDIENTE - Validación independiente de CUIT
 ```
+
+**📋 Documentación Completa:**
+- [Workflow: Emitir Facturas](./docs/WORKFLOW_EMITIR_FACTURAS.md)
+- [Workflows Pendientes](./docs/WORKFLOWS_PENDIENTES.md)
+- [Configuración de n8n](./docs/N8N_WORKFLOWS.md)
 
 ### **6. Ejecutar en Desarrollo**
 ```bash
@@ -238,11 +259,13 @@ src/
 ## 📊 Funcionalidades Principales
 
 ### **Gestión de Facturas**
-- Creación de facturas A y B
-- Cálculo automático de IVA
-- Validación de CUIT con AFIP
-- Generación de PDF
-- Historial de facturas
+- Creación de facturas A, B y C electrónicas
+- Integración completa con AFIP SDK
+- Generación de QR oficial y PDF profesional
+- Envío automático por email con Gmail
+- Almacenamiento automático en Google Drive
+- Validación de CUIT en tiempo real
+- Historial completo de facturas
 
 ### **Control de Stock**
 - Inventario en tiempo real
@@ -257,10 +280,11 @@ src/
 - Campañas de marketing
 
 ### **Dashboard Interactivo**
-- Métricas en tiempo real
-- Gráficos y reportes
-- Monitoreo del sistema
-- Alertas automáticas
+- Métricas en tiempo real con analytics inteligente
+- Gráficos y reportes personalizados
+- Monitoreo del sistema con logs detallados
+- Alertas automáticas y notificaciones
+- Acciones rápidas basadas en uso real
 
 ## 🔧 Configuración Avanzada
 
@@ -354,12 +378,27 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 
 ## 🎯 Roadmap
 
+### **✅ Completado (Fase 1)**
+- [x] Sistema de facturación electrónica con AFIP SDK
+- [x] Integración con Google Drive y Gmail
+- [x] Analytics inteligente y dashboard personalizado
+- [x] Arquitectura multi-tenant
+- [x] Base de datos consolidada y optimizada
+- [x] Documentación completa del sistema
+
+### **🔄 En Desarrollo (Fase 2)**
+- [ ] Workflow de actualización automática de stock
+- [ ] Workflow de registro de pagos
+- [ ] Workflow de alertas de stock
+- [ ] Validación independiente de CUIT
+
+### **📋 Planificado (Fase 3)**
 - [ ] Integración con Mercado Pago
 - [ ] App móvil nativa
 - [ ] Reportes avanzados
 - [ ] Integración con contadores
 - [ ] API pública
-- [ ] Multi-tenant
+- [ ] Funcionalidades adicionales de ERP
 
 ## 🔍 Solución de Problemas
 
