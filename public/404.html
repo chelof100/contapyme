@@ -1,31 +1,50 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>ContaPYME - Página no encontrada</title>
-    <script type="module">
-      // Single Page Apps for GitHub Pages
-      // MIT License
-      // https://github.com/rafgraph/spa-github-pages
-      // This script takes the current url and converts the path and query
-      // string into just a query string, and then redirects the browser
-      // to the new url with only a query string and hash fragment.
-      var pathSegmentsToKeep = 1;
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>ContaPYME - Sistema de Contabilidad para Pymes</title>
+  <script type="text/javascript">
+    // Single Page Apps for GitHub Pages
+    // MIT License
+    // https://github.com/rafgraph/spa-github-pages
+    // This script takes the current url and converts the path and query
+    // string into just a query string, and then redirects the browser
+    // to the new url with only a query string and hash fragment,
+    // e.g. https://www.foo.tld/one/two?a=b&c=d#qwe becomes
+    // https://www.foo.tld/?/one/two&a=b~and~c=d#qwe
+    // Note: this 404.html file must be at least 512 bytes for it to work
+    // with Internet Explorer (it is currently > 512 bytes)
 
-      var l = window.location;
-      l.replace(
-        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-        l.hash
-      );
-    </script>
-  </head>
-  <body>
-    <div style="text-align: center; padding: 50px;">
-      <h1>ContaPYME</h1>
-      <p>Redirigiendo...</p>
-    </div>
-  </body>
-</html> 
+    // If you're creating a Project Pages site and NOT using a custom domain,
+    // then set pathSegmentsToKeep to 1 (enterprise users may need to set it to > 1).
+    // This way the code will only replace the route part and not the real directory.
+    // For example: https://username.github.io/repo-name/one/two?a=b&c=d#qwe becomes
+    // https://username.github.io/repo-name/?/one/two&a=b~and~c=d#qwe
+    // Otherwise, leave pathSegmentsToKeep as 0.
+    var pathSegmentsToKeep = 1;
+
+    var l = window.location;
+    l.replace(
+      l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+      l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+      l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+      (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+      l.hash
+    );
+  </script>
+</head>
+<body>
+  <!-- IE requires at least 512 bytes for custom 404 pages -->
+  <div style="display: none;">
+    ContaPYME - Sistema de Contabilidad para Pymes Argentinas. 
+    Esta página maneja el routing para aplicaciones de una sola página (SPA) 
+    desplegadas en GitHub Pages. Si ves esto, significa que estás siendo 
+    redirigido automáticamente a la página correcta. Por favor espera un momento 
+    mientras te redirigimos. Este sistema permite que las URLs directas funcionen 
+    correctamente en GitHub Pages para aplicaciones React con React Router.
+    Desarrollado para pequeñas y medianas empresas (PyMEs) argentinas.
+    Incluye funcionalidades de facturación, gestión de stock, clientes,
+    reportes financieros y más. Sistema completo de contabilidad y administración.
+  </div>
+</body>
+</html>
