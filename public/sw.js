@@ -1,51 +1,29 @@
 const CACHE_NAME = 'contapyme-v1';
-const BASE_PATH = '/contapyme'; // GitHub Pages base path
 
-const urlsToCache = [
-  `${BASE_PATH}/`,
-  `${BASE_PATH}/index.html`,
-  `${BASE_PATH}/assets/css/index.css`,
-  `${BASE_PATH}/assets/js/index.js`,
-  `${BASE_PATH}/assets/js/vendor.js`,
-  `${BASE_PATH}/assets/js/ui.js`,
-  `${BASE_PATH}/assets/js/supabase.js`,
-  `${BASE_PATH}/assets/js/utils.js`
-];
-
-// Install event
+// Install event - simplified
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
+  console.log('Service Worker installing...');
+  self.skipWaiting();
 });
 
-// Fetch event
+// Fetch event - simplified
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
+    fetch(event.request)
+      .catch(() => {
+        // If network fails, try cache
+        return caches.match(event.request);
       })
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - simplified
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
+  console.log('Service Worker activating...');
+  event.waitUntil(self.clients.claim());
 }); 
