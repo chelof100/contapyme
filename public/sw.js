@@ -1,13 +1,15 @@
 const CACHE_NAME = 'contapyme-v1';
+const BASE_PATH = '/contapyme'; // GitHub Pages base path
+
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/assets/css/index.css',
-  '/assets/js/index.js',
-  '/assets/js/vendor.js',
-  '/assets/js/ui.js',
-  '/assets/js/supabase.js',
-  '/assets/js/utils.js'
+  `${BASE_PATH}/`,
+  `${BASE_PATH}/index.html`,
+  `${BASE_PATH}/assets/css/index.css`,
+  `${BASE_PATH}/assets/js/index.js`,
+  `${BASE_PATH}/assets/js/vendor.js`,
+  `${BASE_PATH}/assets/js/ui.js`,
+  `${BASE_PATH}/assets/js/supabase.js`,
+  `${BASE_PATH}/assets/js/utils.js`
 ];
 
 // Install event
