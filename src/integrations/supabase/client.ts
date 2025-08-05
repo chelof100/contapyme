@@ -6,6 +6,9 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (window as any).ENV_CONFIG?.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (window as any).ENV_CONFIG?.VITE_SUPABASE_ANON_KEY;
 
+// Declarar la variable antes de los bloques
+let supabaseClient: any;
+
 // Detectar si estamos en GitHub Pages (demo)
 const isGitHubPages = window.location.hostname === 'chelof100.github.io';
 const isDemoConfig = SUPABASE_URL?.includes('example.supabase.co') || SUPABASE_PUBLISHABLE_KEY === 'demo-key';
@@ -170,7 +173,7 @@ if (isGitHubPages || isDemoConfig) {
     }
   };
 
-  const supabaseClient = mockSupabase as any;
+  supabaseClient = mockSupabase as any;
 } else {
   // Validar que las credenciales estén disponibles para producción
   if (!SUPABASE_URL) {
@@ -184,7 +187,7 @@ if (isGitHubPages || isDemoConfig) {
   // Import the supabase client like this:
   // import { supabase } from "@/integrations/supabase/client";
 
-  const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage: localStorage,
       persistSession: true,
