@@ -6,22 +6,189 @@ import type { Database } from './types';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (window as any).ENV_CONFIG?.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (window as any).ENV_CONFIG?.VITE_SUPABASE_ANON_KEY;
 
-// Validar que las credenciales estén disponibles
-if (!SUPABASE_URL) {
-  throw new Error('VITE_SUPABASE_URL is required. Please configure it in your environment variables or public/config.js');
-}
+// Detectar si estamos en GitHub Pages (demo)
+const isGitHubPages = window.location.hostname === 'chelof100.github.io';
+const isDemoConfig = SUPABASE_URL?.includes('example.supabase.co') || SUPABASE_PUBLISHABLE_KEY === 'demo-key';
 
-if (!SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error('VITE_SUPABASE_ANON_KEY is required. Please configure it in your environment variables or public/config.js');
-}
+// Si estamos en GitHub Pages o usando configuración demo, usar mock
+if (isGitHubPages || isDemoConfig) {
+  console.log('Running on GitHub Pages - using mock Supabase');
+  
+  // Mock de Supabase para demo
+  const mockSupabase = {
+    auth: {
+      signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
+        if (email === 'admin@contapyme.com' && password === 'admin123') {
+          return {
+            data: {
+              user: {
+                id: 'demo-user-123',
+                email: 'admin@contapyme.com',
+                user_metadata: { name: 'ContaPYME Default' }
+              },
+              session: {
+                access_token: 'demo-token',
+                refresh_token: 'demo-refresh',
+                user: {
+                  id: 'demo-user-123',
+                  email: 'admin@contapyme.com'
+                }
+              }
+            },
+            error: null
+          };
+        }
+        return {
+          data: { user: null, session: null },
+          error: { message: 'Credenciales inválidas' }
+        };
+      },
+      signOut: async () => ({ error: null }),
+      onAuthStateChange: (callback: any) => {
+        setTimeout(() => {
+          callback('SIGNED_IN', {
+            user: {
+              id: 'demo-user-123',
+              email: 'admin@contapyme.com'
+            }
+          });
+        }, 100);
+        return { data: { subscription: { unsubscribe: () => {} } } };
+      },
+      getSession: async () => ({
+        data: {
+          session: {
+            user: {
+              id: 'demo-user-123',
+              email: 'admin@contapyme.com'
+            }
+          }
+        },
+        error: null
+      })
+    },
+    from: (table: string) => ({
+      select: (columns: string = '*') => ({
+        eq: (column: string, value: any) => ({
+          single: async () => {
+            if (table === 'profiles' && column === 'id') {
+              return {
+                data: {
+                  id: 'demo-user-123',
+                  email: 'admin@contapyme.com',
+                  name: 'ContaPYME Default',
+                  empresa_id: 'demo-empresa-123'
+                },
+                error: null
+              };
+            }
+            if (table === 'empresas' && column === 'id') {
+              return {
+                data: {
+                  id: 'demo-empresa-123',
+                  nombre: 'ContaPYME Default',
+                  cuit: '20-12345678-9',
+                  direccion: 'Calle Demo 123'
+                },
+                error: null
+              };
+            }
+            return { data: null, error: null };
+          }
+        }),
+        then: async (callback: any) => {
+          const mockData = {
+            facturas: [
+              { id: 1, numero: 'F001-00000001', cliente: 'Cliente Demo', monto: 15000, fecha: '2024-01-15' },
+              { id: 2, numero: 'F001-00000002', cliente: 'Otro Cliente', monto: 25000, fecha: '2024-01-16' }
+            ],
+            clientes: [
+              { id: 1, nombre: 'Cliente Demo', cuit: '20-12345678-9', email: 'cliente@demo.com' },
+              { id: 2, nombre: 'Otro Cliente', cuit: '20-87654321-0', email: 'otro@cliente.com' }
+            ],
+            productos: [
+              { id: 1, nombre: 'Producto Demo 1', precio: 1000, stock: 50 },
+              { id: 2, nombre: 'Producto Demo 2', precio: 2000, stock: 25 }
+            ],
+            stock: [
+              { id: 1, producto_id: 1, cantidad: 50, tipo: 'entrada', fecha: '2024-01-15' },
+              { id: 2, producto_id: 2, cantidad: 25, tipo: 'entrada', fecha: '2024-01-16' }
+            ],
+            profiles: [
+              { id: 'demo-user-123', email: 'admin@contapyme.com', name: 'ContaPYME Default', empresa_id: 'demo-empresa-123' }
+            ],
+            empresas: [
+              { id: 'demo-empresa-123', nombre: 'ContaPYME Default', cuit: '20-12345678-9', direccion: 'Calle Demo 123' }
+            ]
+          };
+          
+          const data = mockData[table as keyof typeof mockData] || [];
+          return callback({ data, error: null });
+        }
+      }),
+      insert: (data: any) => ({
+        select: (columns: string = '*') => ({
+          then: async (callback: any) => {
+            const insertedData = {
+              id: 'demo-insert-id',
+              ...data,
+              created_at: new Date().toISOString()
+            };
+            return callback({ data: insertedData, error: null });
+          }
+        }),
+        then: async (callback: any) => {
+          return callback({ data: { id: 'demo-insert-id' }, error: null });
+        }
+      }),
+      update: (data: any) => ({
+        eq: (column: string, value: any) => ({
+          then: async (callback: any) => {
+            return callback({ data: { id: value }, error: null });
+          }
+        })
+      }),
+      delete: () => ({
+        eq: (column: string, value: any) => ({
+          then: async (callback: any) => {
+            return callback({ data: { id: value }, error: null });
+          }
+        })
+      })
+    }),
+    storage: {
+      from: (bucket: string) => ({
+        upload: async (path: string, file: any) => ({
+          data: { path },
+          error: null
+        }),
+        download: async (path: string) => ({
+          data: new Blob(['demo file content']),
+          error: null
+        })
+      })
+    }
+  };
 
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
-
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: {
-    storage: localStorage,
-    persistSession: true,
-    autoRefreshToken: true,
+  export const supabase = mockSupabase as any;
+} else {
+  // Validar que las credenciales estén disponibles para producción
+  if (!SUPABASE_URL) {
+    throw new Error('VITE_SUPABASE_URL is required. Please configure it in your environment variables or public/config.js');
   }
-});
+
+  if (!SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error('VITE_SUPABASE_ANON_KEY is required. Please configure it in your environment variables or public/config.js');
+  }
+
+  // Import the supabase client like this:
+  // import { supabase } from "@/integrations/supabase/client";
+
+  export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth: {
+      storage: localStorage,
+      persistSession: true,
+      autoRefreshToken: true,
+    }
+  });
+}
