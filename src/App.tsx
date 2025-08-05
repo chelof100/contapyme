@@ -6,53 +6,72 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { DataProvider } from "./contexts/DataContext";
 import ProtectedRoute from "./components/ProtectedRoute";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Facturas from "./pages/Facturas";
-import OrdenesCompra from "./pages/OrdenesCompra";
-import OrdenesRecepcion from "./pages/OrdenesRecepcion";
-import Pagos from "./pages/Pagos";
-import Stock from "./pages/Stock";
-import Recetas from "./pages/Recetas";
-import Configuracion from "./pages/Configuracion";
-import Clientes from "./pages/crm/Clientes";
-import Oportunidades from "./pages/crm/Oportunidades";
-import Actividades from "./pages/crm/Actividades";
-import Campanas from "./pages/crm/Campanas";
-import Finanzas from "./pages/erp/Finanzas";
-import Empleados from "./pages/erp/Empleados";
-import Proyectos from "./pages/erp/Proyectos";
-import UsuariosAdmin from "./pages/admin/Usuarios";
 import Layout from "./components/Layout";
-import NotFound from "./pages/NotFound";
-import Index from "./pages/Index";
-import TestingDashboard from "./pages/TestingDashboard";
-import Monitoreo from "./pages/Monitoreo";
+import LazyComponent from "./components/LazyComponent";
+import ErrorBoundary from "./components/ErrorBoundary";
+
+// Lazy load all pages
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Facturas = lazy(() => import("./pages/Facturas"));
+const OrdenesCompra = lazy(() => import("./pages/OrdenesCompra"));
+const OrdenesRecepcion = lazy(() => import("./pages/OrdenesRecepcion"));
+const Pagos = lazy(() => import("./pages/Pagos"));
+const Stock = lazy(() => import("./pages/Stock"));
+const Recetas = lazy(() => import("./pages/Recetas"));
+const Configuracion = lazy(() => import("./pages/Configuracion"));
+const Clientes = lazy(() => import("./pages/crm/Clientes"));
+const Oportunidades = lazy(() => import("./pages/crm/Oportunidades"));
+const Actividades = lazy(() => import("./pages/crm/Actividades"));
+const Campanas = lazy(() => import("./pages/crm/Campanas"));
+const Finanzas = lazy(() => import("./pages/erp/Finanzas"));
+const Empleados = lazy(() => import("./pages/erp/Empleados"));
+const Proyectos = lazy(() => import("./pages/erp/Proyectos"));
+const UsuariosAdmin = lazy(() => import("./pages/admin/Usuarios"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Index = lazy(() => import("./pages/Index"));
+const TestingDashboard = lazy(() => import("./pages/TestingDashboard"));
+const Monitoreo = lazy(() => import("./pages/Monitoreo"));
+
+import { lazy } from "react";
 
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <DataProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter basename={import.meta.env.BASE_URL}>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <DataProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter basename={import.meta.env.BASE_URL}>
             <Routes>
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={
+                <LazyComponent>
+                  <Auth />
+                </LazyComponent>
+              } />
+              <Route path="/" element={
+                <LazyComponent>
+                  <Index />
+                </LazyComponent>
+              } />
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <Layout>
-                    <Dashboard />
+                    <LazyComponent>
+                      <Dashboard />
+                    </LazyComponent>
                   </Layout>
                 </ProtectedRoute>
               } />
               <Route path="/facturas" element={
                 <ProtectedRoute>
                   <Layout>
-                    <Facturas />
+                    <LazyComponent>
+                      <Facturas />
+                    </LazyComponent>
                   </Layout>
                 </ProtectedRoute>
               } />
@@ -170,11 +189,12 @@ const App = () => (
             } />
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </DataProvider>
-    </AuthProvider>
-  </QueryClientProvider>
+                    </BrowserRouter>
+          </TooltipProvider>
+        </DataProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

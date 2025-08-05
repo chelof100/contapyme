@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,10 +15,13 @@ import {
   Download
 } from 'lucide-react';
 import { useSystemMetrics } from '@/hooks/useSystemMetrics';
-import SystemOverview from '@/components/monitoring/SystemOverview';
-import WorkflowMetrics from '@/components/monitoring/WorkflowMetrics';
-import ErrorLogs from '@/components/monitoring/ErrorLogs';
 import { toast } from 'sonner';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+// Lazy load heavy monitoring components
+const SystemOverview = lazy(() => import('@/components/monitoring/SystemOverview'));
+const WorkflowMetrics = lazy(() => import('@/components/monitoring/WorkflowMetrics'));
+const ErrorLogs = lazy(() => import('@/components/monitoring/ErrorLogs'));
 
 const Monitoreo = () => {
   const {
@@ -231,28 +234,34 @@ const Monitoreo = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <SystemOverview 
-            metrics={metrics}
-            integrations={integrations}
-            loading={loading}
-          />
+          <Suspense fallback={<LoadingSpinner text="Cargando métricas del sistema..." />}>
+            <SystemOverview 
+              metrics={metrics}
+              integrations={integrations}
+              loading={loading}
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="workflows" className="space-y-6">
-          <WorkflowMetrics 
-            performance={workflowPerformance}
-            recentWorkflows={recentWorkflows}
-            loading={loading}
-          />
+          <Suspense fallback={<LoadingSpinner text="Cargando métricas de workflows..." />}>
+            <WorkflowMetrics 
+              performance={workflowPerformance}
+              recentWorkflows={recentWorkflows}
+              loading={loading}
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="errors" className="space-y-6">
-          <ErrorLogs 
-            errors={recentErrors}
-            errorSummary={errorSummary}
-            onResolveError={resolveError}
-            loading={loading}
-          />
+          <Suspense fallback={<LoadingSpinner text="Cargando logs de errores..." />}>
+            <ErrorLogs 
+              errors={recentErrors}
+              errorSummary={errorSummary}
+              onResolveError={resolveError}
+              loading={loading}
+            />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-6">
