@@ -49,14 +49,46 @@ export const mockSupabase = {
     }
   },
   from: (table: string) => ({
-    select: () => ({
-      eq: () => Promise.resolve({ data: [], error: null }),
-      single: () => Promise.resolve({ data: null, error: null }),
-      order: () => Promise.resolve({ data: [], error: null }),
-      limit: () => Promise.resolve({ data: [], error: null })
+    select: (columns?: string) => ({
+      eq: (column: string, value: any) => ({
+        single: () => {
+          // Mock específico para la tabla empresas
+          if (table === 'empresas' && column === 'nombre' && value === 'ContaPYME Default') {
+            return Promise.resolve({ 
+              data: { 
+                id: 'mock-empresa-id-123',
+                nombre: 'ContaPYME Default',
+                razon_social: 'ContaPYME Default S.A.'
+              }, 
+              error: null 
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        },
+        order: (column: string) => Promise.resolve({ data: [], error: null }),
+        limit: (count: number) => Promise.resolve({ data: [], error: null })
+      }),
+      order: (column: string) => Promise.resolve({ data: [], error: null }),
+      limit: (count: number) => Promise.resolve({ data: [], error: null })
     }),
-    insert: () => Promise.resolve({ data: null, error: null }),
-    update: () => Promise.resolve({ data: null, error: null }),
+    insert: (data: any) => ({
+      select: (columns?: string) => ({
+        single: () => {
+          // Mock para insertar empresa
+          if (table === 'empresas') {
+            return Promise.resolve({ 
+              data: { 
+                id: 'mock-empresa-id-123',
+                ...data
+              }, 
+              error: null 
+            });
+          }
+          return Promise.resolve({ data: null, error: null });
+        }
+      })
+    }),
+    update: (data: any) => Promise.resolve({ data: null, error: null }),
     delete: () => Promise.resolve({ data: null, error: null })
   }),
   storage: {
@@ -66,4 +98,4 @@ export const mockSupabase = {
       remove: () => Promise.resolve({ data: null, error: null })
     })
   }
-}; 
+};
