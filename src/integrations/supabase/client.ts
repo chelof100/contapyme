@@ -68,6 +68,16 @@ if (isGitHubPages || isDemoConfig) {
           }
         },
         error: null
+      }),
+      getUser: async () => ({
+        data: {
+          user: {
+            id: 'demo-user-123',
+            email: 'admin@contapyme.com',
+            user_metadata: { name: 'ContaPYME Default' }
+          }
+        },
+        error: null
       })
     },
     from: (table: string) => ({
@@ -122,6 +132,14 @@ if (isGitHubPages || isDemoConfig) {
             ],
             empresas: [
               { id: 'demo-empresa-123', nombre: 'ContaPYME Default', cuit: '20-12345678-9', direccion: 'Calle Demo 123' }
+            ],
+            user_actions: [
+              { id: 1, user_id: 'demo-user-123', action: 'page_view', page: 'dashboard', timestamp: new Date().toISOString() },
+              { id: 2, user_id: 'demo-user-123', action: 'login', page: 'auth', timestamp: new Date().toISOString() }
+            ],
+            user_preferences: [
+              { id: 1, user_id: 'demo-user-123', preference_key: 'theme', preference_value: 'light' },
+              { id: 2, user_id: 'demo-user-123', preference_key: 'language', preference_value: 'es' }
             ]
           };
           
@@ -131,6 +149,14 @@ if (isGitHubPages || isDemoConfig) {
       }),
       insert: (data: any) => ({
         select: (columns: string = '*') => ({
+          single: async () => {
+            const insertedData = {
+              id: 'demo-insert-id',
+              ...data,
+              created_at: new Date().toISOString()
+            };
+            return { data: insertedData, error: null };
+          },
           then: async (callback: any) => {
             const insertedData = {
               id: 'demo-insert-id',
