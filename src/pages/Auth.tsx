@@ -35,23 +35,19 @@ const Auth = () => {
 
     try {
       console.log('Starting login process for:', loginData.email);
-      console.log('Starting login process for:', loginData.email);
       const { error } = await signIn(loginData.email, loginData.password);
       
       if (error) {
-        console.error('Login failed:', error);
         console.error('Login failed:', error);
         setIsLoading(false);
         return;
       }
 
       console.log('Login successful, navigating to dashboard...');
-      console.log('Login successful, navigating to dashboard...');
       toast.success("¡Bienvenido! Has iniciado sesión correctamente");
       navigate('/dashboard');
       
     } catch (error) {
-      console.error('Login exception:', error);
       console.error('Login exception:', error);
       toast.error("Ocurrió un error inesperado");
       setIsLoading(false);

@@ -268,83 +268,110 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('Attempting signin for:', email);
+    console.log('🔍 SIGNIN DEBUG - Starting signin for:', email);
+    console.log('🔍 SIGNIN DEBUG - Environment check:', {
+      hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+      pathname: typeof window !== 'undefined' ? window.location.pathname : 'server',
+      baseUrl: import.meta.env.BASE_URL,
+      mode: import.meta.env.MODE,
+      isGitHubPages: typeof window !== 'undefined' && window.location.hostname === 'chelof100.github.io'
+    });
     
     // Verificar si es el usuario de prueba
     if (email === 'admin@contapyme.com' && password === 'admin123') {
-      // Obtener el ID real de la empresa default desde la base de datos
-      const { data: empresaDefault } = await supabase
-        .from('empresas')
-        .select('id')
-        .eq('nombre', 'ContaPYME Default')
-        .single();
+      console.log('🔍 SIGNIN DEBUG - Using mock authentication for demo user');
       
-      let empresaId = empresaDefault?.id || null;
-      
-      // Si no hay empresa por defecto, crear una
-      if (!empresaId) {
-        try {
-          const { data: newEmpresa, error: empresaError } = await supabase
-            .from('empresas')
-            .insert({
-              nombre: 'ContaPYME Default',
-              razon_social: 'ContaPYME Default S.A.',
-              cuit: '20-12345678-9',
-              email: 'admin@contapyme.com',
-              telefono: '+54 11 1234-5678',
-              direccion: 'Av. Corrientes 1234, CABA',
-              created_by: 'test-user-id-12345678901234567890'
-            })
-            .select('id')
-            .single();
-          
-          if (!empresaError && newEmpresa) {
-            empresaId = newEmpresa.id;
-            console.log('Created default empresa with ID:', empresaId);
+      try {
+        console.log('🔍 SIGNIN DEBUG - Attempting to query empresas table');
+        // Obtener el ID real de la empresa default desde la base de datos
+        const { data: empresaDefault, error: empresaError } = await supabase
+          .from('empresas')
+          .select('id')
+          .eq('nombre', 'ContaPYME Default')
+          .single();
+        
+        console.log('🔍 SIGNIN DEBUG - Empresas query result:', { empresaDefault, empresaError });
+        
+        let empresaId = empresaDefault?.id || null;
+        
+        // Si no hay empresa por defecto, crear una
+        if (!empresaId) {
+          console.log('🔍 SIGNIN DEBUG - Creating default empresa for demo');
+          try {
+            const { data: newEmpresa, error: empresaError } = await supabase
+              .from('empresas')
+              .insert({
+                nombre: 'ContaPYME Default',
+                razon_social: 'ContaPYME Default S.A.',
+                cuit: '20-12345678-9',
+                email: 'admin@contapyme.com',
+                telefono: '+54 11 1234-5678',
+                direccion: 'Av. Corrientes 1234, CABA',
+                created_by: 'test-user-id-12345678901234567890'
+              })
+              .select('id')
+              .single();
+            
+            console.log('🔍 SIGNIN DEBUG - Empresa creation result:', { newEmpresa, empresaError });
+            
+            if (!empresaError && newEmpresa) {
+              empresaId = newEmpresa.id;
+              console.log('🔍 SIGNIN DEBUG - Created default empresa with ID:', empresaId);
+            } else {
+              console.error('🔍 SIGNIN DEBUG - Error creating empresa:', empresaError);
+            }
+          } catch (error) {
+            console.error('🔍 SIGNIN DEBUG - Exception creating default empresa:', error);
           }
-        } catch (error) {
-          console.error('Error creating default empresa:', error);
         }
+        
+        console.log('🔍 SIGNIN DEBUG - Final empresa ID:', empresaId);
+        
+        const mockUser: ExtendedUser = {
+          id: 'test-user-id-12345678901234567890',
+          email: 'admin@contapyme.com',
+          pyme_id: empresaId,
+          pyme_nombre: 'ContaPYME Default',
+          permissions: ['developer_config', 'manage_users', 'view_all', 'edit_all'],
+          aud: 'authenticated',
+          role: 'authenticated',
+          email_confirmed_at: new Date().toISOString(),
+          last_sign_in_at: new Date().toISOString(),
+          app_metadata: {},
+          user_metadata: {},
+          identities: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        const mockProfile: UserProfile = {
+          id: 'test-user-id-12345678901234567890',
+          username: 'admin',
+          first_name: 'Admin',
+          last_name: 'Usuario',
+          email: 'admin@contapyme.com',
+          empresa_id: empresaId,
+          role: 'admin',
+          avatar_url: null
+        };
+        
+        console.log('🔍 SIGNIN DEBUG - Setting user and profile:', { mockUser, mockProfile });
+        
+        setUser(mockUser);
+        setProfile(mockProfile);
+        
+        console.log('✅ SIGNIN DEBUG - Mock signin successful for admin user with empresa_id:', empresaId);
+        toast.success('¡Bienvenido al demo de ContaPYME!');
+        return { error: null };
+        
+      } catch (error) {
+        console.error('🔍 SIGNIN DEBUG - Exception in mock login:', error);
+        toast.error('Error en el login de demo: ' + error.message);
+        return { error };
       }
-      
-      console.log('Mock login - empresa found:', empresaId);
-      
-      const mockUser: ExtendedUser = {
-        id: 'test-user-id-12345678901234567890',
-        email: 'admin@contapyme.com',
-        pyme_id: empresaId,
-        pyme_nombre: 'ContaPYME Default',
-        permissions: ['developer_config', 'manage_users', 'view_all', 'edit_all'],
-        aud: 'authenticated',
-        role: 'authenticated',
-        email_confirmed_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: {},
-        user_metadata: {},
-        identities: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const mockProfile: UserProfile = {
-        id: 'test-user-id-12345678901234567890',
-        username: 'admin',
-        first_name: 'Admin',
-        last_name: 'Usuario',
-        email: 'admin@contapyme.com',
-        empresa_id: empresaId,
-        role: 'admin',
-        avatar_url: null
-      };
-      
-      setUser(mockUser);
-      setProfile(mockProfile);
-      
-      console.log('Mock signin successful for admin user with empresa_id:', empresaId);
-      return { error: null };
     }
     
-    console.log('Attempting real Supabase signin for:', email);
+    console.log('🔍 SIGNIN DEBUG - Attempting real Supabase signin for:', email);
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -352,16 +379,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     if (error) {
-      console.error('Signin error:', error);
+      console.error('🔍 SIGNIN DEBUG - Signin error:', error);
       if (error.message.includes('Invalid login credentials')) {
-        toast.error('Email o contraseña incorrectos');
+        toast.error('Email o contraseña incorrectos. Para el demo usa: admin@contapyme.com / admin123');
       } else if (error.message.includes('Email not confirmed')) {
         toast.error('Debes confirmar tu email antes de iniciar sesión');
       } else {
         toast.error(`Error de autenticación: ${error.message}`);
       }
     } else {
-      console.log('Signin successful for:', email);
+      console.log('🔍 SIGNIN DEBUG - Signin successful for:', email);
+      toast.success('¡Bienvenido a ContaPYME!');
     }
     
     return { error };

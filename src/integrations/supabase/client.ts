@@ -3,47 +3,56 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { mockSupabase } from '@/utils/mockSupabase';
 
-// Obtener configuración desde variables de entorno o configuración pública
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (window as any).ENV_CONFIG?.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (window as any).ENV_CONFIG?.VITE_SUPABASE_ANON_KEY;
+// Detectar GitHub Pages de manera más robusta
+const isGitHubPages = typeof window !== 'undefined' && (
+  window.location.hostname === 'chelof100.github.io' ||
+  window.location.hostname.includes('github.io') ||
+  window.location.pathname.includes('/contapyme/') ||
+  import.meta.env.BASE_URL === '/contapyme/'
+);
 
-// Detectar si estamos en GitHub Pages con URLs de ejemplo
-const isGitHubPages = typeof window !== 'undefined' && window.location.hostname === 'chelof100.github.io';
-const isExampleConfig = SUPABASE_URL?.includes('example.supabase.co');
-
-console.log('Debug Supabase config:', {
-  isGitHubPages,
-  isExampleConfig,
-  SUPABASE_URL,
-  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server'
+console.log('GitHub Pages detection check:', {
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server',
+  pathname: typeof window !== 'undefined' ? window.location.pathname : 'server',
+  baseUrl: import.meta.env.BASE_URL,
+  mode: import.meta.env.MODE,
+  isGitHubPages
 });
 
-// Crear el cliente de Supabase
+// Usar mock en GitHub Pages, real en otros casos
 let supabaseClient: any;
 
-if (isGitHubPages && isExampleConfig) {
-  console.log('Using mock Supabase for GitHub Pages demo');
+if (isGitHubPages) {
+  console.log('✅ Using mock Supabase for GitHub Pages demo');
   supabaseClient = mockSupabase;
 } else {
+  // Obtener configuración desde variables de entorno o configuración pública
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || (window as any).ENV_CONFIG?.VITE_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (window as any).ENV_CONFIG?.VITE_SUPABASE_ANON_KEY;
+
+  console.log('Environment variables check:', {
+    hasUrl: !!SUPABASE_URL,
+    hasKey: !!SUPABASE_PUBLISHABLE_KEY,
+    mode: import.meta.env.MODE
+  });
+
   // Validar que las credenciales estén disponibles
   if (!SUPABASE_URL) {
-    throw new Error('VITE_SUPABASE_URL is required. Please configure it in your environment variables or public/config.js');
+    console.error('VITE_SUPABASE_URL is missing. Falling back to mock Supabase.');
+    supabaseClient = mockSupabase;
+  } else if (!SUPABASE_PUBLISHABLE_KEY) {
+    console.error('VITE_SUPABASE_ANON_KEY is missing. Falling back to mock Supabase.');
+    supabaseClient = mockSupabase;
+  } else {
+    console.log('Using real Supabase client');
+    supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+      auth: {
+        storage: localStorage,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    });
   }
-
-  if (!SUPABASE_PUBLISHABLE_KEY) {
-    throw new Error('VITE_SUPABASE_ANON_KEY is required. Please configure it in your environment variables or public/config.js');
-  }
-
-  // Import the supabase client like this:
-  // import { supabase } from "@/integrations/supabase/client";
-
-  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-    }
-  });
 }
 
 export const supabase = supabaseClient;
