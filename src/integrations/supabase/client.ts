@@ -11,6 +11,13 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (wind
 const isGitHubPages = typeof window !== 'undefined' && window.location.hostname === 'chelof100.github.io';
 const isExampleConfig = SUPABASE_URL?.includes('example.supabase.co');
 
+console.log('Debug Supabase config:', {
+  isGitHubPages,
+  isExampleConfig,
+  SUPABASE_URL,
+  hostname: typeof window !== 'undefined' ? window.location.hostname : 'server'
+});
+
 // Crear el cliente de Supabase
 let supabaseClient: any;
 
