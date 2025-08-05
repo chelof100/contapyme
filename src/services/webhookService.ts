@@ -846,3 +846,4 @@ class WebhookService {
 
 export const webhookService = new WebhookService();
 export default webhookService;
+export { WebhookService };
