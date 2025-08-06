@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 import { webhookService } from './webhookService';
 import { afipValidationService } from './afipValidationService';
 import { configManager } from '@/config/app';

@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '../integrations/supabase/client';
 import { configManager } from '@/config/app';
 import { errorHandler } from '@/utils/errorHandler';
 import { toast } from 'sonner';
