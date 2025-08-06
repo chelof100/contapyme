@@ -9,12 +9,12 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || (wind
 // Declarar la variable antes de los bloques
 let supabaseClient: any;
 
-// Detectar si estamos en GitHub Pages (demo)
+// Detectar si estamos en GitHub Pages (demo) - SOLO para demo
 const isGitHubPages = window.location.hostname === 'chelof100.github.io';
 const isDemoConfig = SUPABASE_URL?.includes('example.supabase.co') || SUPABASE_PUBLISHABLE_KEY === 'demo-key';
 
-// Si estamos en GitHub Pages o usando configuración demo, usar mock
-if (isGitHubPages || isDemoConfig) {
+// SOLO usar mock en GitHub Pages, NO en local
+if (isGitHubPages && isDemoConfig) {
   console.log('Running on GitHub Pages - using mock Supabase');
   
   // Mock de Supabase para demo
@@ -199,9 +199,12 @@ if (isGitHubPages || isDemoConfig) {
     }
   };
 
-  supabaseClient = mockSupabase as any;
+  const supabaseClient = mockSupabase as any;
 } else {
-  // Validar que las credenciales estén disponibles para producción
+  // Para local y producción - usar Supabase real
+  console.log('Running locally/production - using real Supabase');
+  
+  // Validar que las credenciales estén disponibles
   if (!SUPABASE_URL) {
     throw new Error('VITE_SUPABASE_URL is required. Please configure it in your environment variables or public/config.js');
   }
@@ -213,7 +216,7 @@ if (isGitHubPages || isDemoConfig) {
   // Import the supabase client like this:
   // import { supabase } from "@/integrations/supabase/client";
 
-  supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     auth: {
       storage: localStorage,
       persistSession: true,
