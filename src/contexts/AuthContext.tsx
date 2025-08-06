@@ -288,12 +288,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('empresas')
             .insert({
               nombre: 'ContaPYME Default',
-              razon_social: 'ContaPYME Default S.A.',
-              cuit: '20-12345678-9',
+              rut: '20-12345678-9',
               email: 'admin@contapyme.com',
               telefono: '+54 11 1234-5678',
               direccion: 'Av. Corrientes 1234, CABA',
-              created_by: 'test-user-id-12345678901234567890'
+              sector: 'Servicios',
+              tipo_empresa: 'PYME'
             })
             .select('id')
             .single();

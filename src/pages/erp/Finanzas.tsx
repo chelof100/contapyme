@@ -267,10 +267,10 @@ const Finanzas = () => {
             <div className="flex items-center space-x-2">
               <Target className="h-8 w-8 text-blue-500" />
               <div>
-                <p className="text-2xl font-bold flex items-center gap-2">
+                <div className="text-2xl font-bold flex items-center gap-2">
                   {kpisCalculados.variacionPresupuesto.toFixed(1)}%
                   {getVariacionBadge(kpisCalculados.variacionPresupuesto)}
-                </p>
+                </div>
                 <p className="text-sm text-muted-foreground">vs Presupuesto</p>
               </div>
             </div>
