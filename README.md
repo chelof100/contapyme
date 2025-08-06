@@ -147,6 +147,7 @@ npm run type-check   # Verificación de tipos
 
 ## 📚 Documentación
 
+- **[Guía de Implementación](docs/GUIA_IMPLEMENTACION.md)** - Guía completa para implementar en clientes
 - **[Workflows n8n](docs/N8N_WORKFLOWS.md)** - Documentación de automatizaciones
 - **[Migración de Base de Datos](docs/MIGRATION.md)** - Guía de migración
 - **[Análisis Completo](docs/ANALISIS_COMPLETO_PROYECTO.md)** - Análisis técnico
@@ -183,6 +184,29 @@ npm run type-check   # Verificación de tipos
 - ✅ **Rollback seguro** en caso de problemas
 - ✅ **Documentación completa** para implementación
 
+## 🚨 Solución de Problemas
+
+### **Error: "VITE_SUPABASE_URL is required"**
+```bash
+# Solución: Configurar variables de entorno
+cp .env.example .env.local
+# Editar .env.local con las credenciales correctas
+```
+
+### **Error: "Cannot find module"**
+```bash
+# Solución: Reinstalar dependencias
+npm install
+```
+
+### **Error: "Build failed"**
+```bash
+# Solución: Limpiar cache y reinstalar
+npm run clean
+npm install
+npm run build
+```
+
 ## 🤝 Contribuir
 
 1. Fork el proyecto
@@ -197,6 +221,7 @@ Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) par
 
 ## 🆘 Soporte
 
+- **Guía de Implementación:** [docs/GUIA_IMPLEMENTACION.md](docs/GUIA_IMPLEMENTACION.md)
 - **Issues:** [GitHub Issues](https://github.com/chelof100/contapyme/issues)
 - **Documentación:** [docs/](docs/)
 - **Demo:** [GitHub Pages](https://chelof100.github.io/contapyme/)
