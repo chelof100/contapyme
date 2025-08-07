@@ -18,6 +18,7 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.example
 
 # IDE and editor files
 .vscode/
@@ -99,17 +100,8 @@ jspm_packages/
 *.bak
 *.backup
 
-# Migration temporary files
-*-migration-*.js
-*-migration-*.sql
-auto-*.js
-check-*.js
-direct-*.js
-execute-*.js
-run-*.js
-supabase-*.js
-verify-*.js
-quick-*.js
+# Migration temporary files (CLEANED)
+# Archivos temporales de migración eliminados
 
 # Documentation temporary files
 REPOSITORY-ORGANIZATION.md
