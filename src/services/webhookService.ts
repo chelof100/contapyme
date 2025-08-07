@@ -30,6 +30,7 @@ interface WebhookEndpoints {
   recetaCreacion: string;
   recetaVenta: string;
 }
+
 interface WebhookConfig {
   baseUrl: string;
   endpoints: WebhookEndpoints;
@@ -76,7 +77,7 @@ class WebhookService {
       : this.getDefaultEndpoints();
     
     this.config = {
-      baseUrl: baseUrl || 'https://n8n.n8ncloud.top',
+      baseUrl: baseUrl || appConfig.api.n8n.baseUrl,
       endpoints: webhookEndpoints,
       timeout: appConfig.api.n8n.timeout,
       defaultHeaders: {
@@ -87,7 +88,7 @@ class WebhookService {
       },
       retryConfig: {
         maxRetries: appConfig.api.n8n.retryAttempts,
-        delay: appConfig.api.n8n.retryDelay,
+        delay: 1000, // Delay fijo de 1 segundo
         backoffMultiplier: 2
       },
       rateLimiting: {
@@ -187,17 +188,17 @@ class WebhookService {
       throw new Error('n8n URL not configured');
     }
     
-    // Check for placeholder URLs that indicate misconfiguration
-    if (this.config.baseUrl.includes('n8n.n8ncloud.top') || 
-        this.config.baseUrl.includes('localhost') ||
-        this.config.baseUrl.includes('127.0.0.1')) {
-      throw new Error('n8n URL not configured properly - using placeholder or local URL');
+    // Permitir localhost para desarrollo con proxy
+    if (this.config.baseUrl.includes('tu-workspace') ||
+        this.config.baseUrl.includes('placeholder')) {
+      throw new Error('n8n URL not configured properly - using placeholder URL');
     }
     
     if (!this.config.baseUrl.startsWith('http')) {
       throw new Error('n8n URL must start with http or https');
     }
   }
+
   private async makeRequest(
     endpoint: string, 
     data: any, 
@@ -206,21 +207,29 @@ class WebhookService {
       validate?: boolean;
       schema?: any;
       priority?: 'high' | 'medium' | 'low';
+      method?: 'GET' | 'POST';
     } = {}
   ): Promise<WebhookResponse> {
-    this.validateConfig();
-    
     const { 
       retryConfig = this.config.retryConfig, 
       validate = false, 
       schema,
-      priority = 'medium'
+      priority = 'medium',
+      method = 'POST'
     } = options;
+    
+    console.log('🔍 [WebhookService] Configuración actual:', {
+      baseUrl: this.config.baseUrl,
+      endpoint,
+      method,
+      priority
+    });
     
     // Check if n8n is configured before making request
     try {
       this.validateConfig();
     } catch (error) {
+      console.error('❌ [WebhookService] Error de validación:', error);
       return {
         success: false,
         error: (error as Error).message,
@@ -265,10 +274,16 @@ class WebhookService {
         if (this.config.apiKey) {
           enhancedHeaders['X-N8N-API-KEY'] = this.config.apiKey;
         }
-        const response = await fetch(`${this.config.baseUrl}${endpoint}`, {
-          method: 'POST',
+
+        const fetchOptions: RequestInit = {
+          method,
           headers: enhancedHeaders,
-          body: JSON.stringify({
+          signal: controller.signal
+        };
+
+        // Solo agregar body para POST requests
+        if (method === 'POST') {
+          fetchOptions.body = JSON.stringify({
             ...data,
             metadata: {
               requestId,
@@ -278,11 +293,22 @@ class WebhookService {
               attempt: attempt + 1,
               priority
             }
-          }),
-          signal: controller.signal
-        });
+          });
+        }
+
+        const fullUrl = `${this.config.baseUrl}${endpoint}`;
+        console.log('🌐 [WebhookService] Haciendo petición a:', fullUrl);
+        console.log('📤 [WebhookService] Opciones de fetch:', fetchOptions);
+        
+        const response = await fetch(fullUrl, fetchOptions);
 
         clearTimeout(timeoutId);
+
+        console.log('📥 [WebhookService] Respuesta recibida:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
 
         const result = await response.json();
         const responseTime = Date.now() - startTime;
@@ -368,7 +394,8 @@ class WebhookService {
       source: 'ContaPYME-Frontend',
       version: configManager.getConfig().app.version
     }, { 
-      priority: 'high'
+      priority: 'high',
+      method: 'GET'
     });
   }
 
@@ -385,13 +412,6 @@ class WebhookService {
       priority: 'high'
     });
   }
-
-  // TODO: Implementar workflow n8n para último número
-  // async consultarUltimoNumeroAfip(data: any): Promise<WebhookResponse> {
-  //   return this.makeRequest('/webhook/afip-ultimo-numero', data, {
-  //     priority: 'high'
-  //   });
-  // }
 
   // Webhook para obtener puntos de venta autorizados
   async obtenerPuntosVentaAfip(data: any): Promise<WebhookResponse> {
@@ -488,7 +508,7 @@ class WebhookService {
     });
   }
 
-  // Webhook para descarga masiva de facturas (actualizado con selección específica)
+  // Webhook para descarga masiva de facturas
   async descargarFacturasMasivo(data: any): Promise<WebhookResponse> {
     return this.makeRequest('/webhook/facturas-descarga-masiva', data, {
       priority: 'medium'
@@ -796,6 +816,7 @@ class WebhookService {
     config.endpoints = this.config.endpoints;
     localStorage.setItem('webhook-endpoints', JSON.stringify(config));
   }
+
   // Obtener métricas del servicio
   getMetrics(): RequestMetrics {
     return { ...this.metrics };

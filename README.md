@@ -42,6 +42,7 @@ Sistema completo de contabilidad para pequeñas y medianas empresas argentinas, 
 git clone https://github.com/chelof100/contapyme.git
 cd contapyme
 npm run setup
+npm run setup:n8n
 ```
 
 ### **Opción 2: Instalación Manual**
@@ -139,6 +140,7 @@ npm run test:coverage # Cobertura de tests
 
 # Utilidades
 npm run setup        # Setup automatizado
+npm run setup:n8n    # Configuración automatizada de n8n
 npm run verify       # Verificar configuración
 npm run clean        # Limpiar cache
 npm run lint         # Linting

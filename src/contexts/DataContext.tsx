@@ -96,7 +96,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      testConnectionQuality(); // TEMPORALMENTE DESACTIVADO - CORS issues
+      testConnectionQuality();
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -107,10 +107,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener('offline', handleOffline);
 
     // Test inicial de calidad de conexión
-    // TEMPORALMENTE DESACTIVADO - CORS issues con n8n.n8ncloud.top
-    // if (navigator.onLine) {
-    //   testConnectionQuality(); // TEMPORALMENTE DESACTIVADO - CORS issues
-    // }
+    if (navigator.onLine) {
+      testConnectionQuality();
+    }
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -152,10 +151,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   // Procesar operaciones pendientes cuando se recupera la conexión
   useEffect(() => {
-    // TEMPORALMENTE DESACTIVADO - CORS issues
-    // if (isOnline && pendingOperations.length > 0) {
-    //   processPendingOperations();
-    // }
+    if (isOnline && pendingOperations.length > 0) {
+      processPendingOperations();
+    }
   }, [isOnline]);
 
   // Procesar operaciones programadas
@@ -400,14 +398,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Monitoreo de salud de conexión cada 5 minutos
   useEffect(() => {
-    // TEMPORALMENTE DESACTIVADO - CORS issues con n8n
-    // const healthCheck = setInterval(() => {
-    //   if (isOnline) {
-    //     testConnectionQuality(); // TEMPORALMENTE DESACTIVADO - CORS issues
-    //   }
-    // }, 5 * 60 * 1000);
+    const healthCheck = setInterval(() => {
+      if (isOnline) {
+        testConnectionQuality();
+      }
+    }, 5 * 60 * 1000);
 
-    // return () => clearInterval(healthCheck);
+    return () => clearInterval(healthCheck);
   }, [isOnline]);
   return (
     <DataContext.Provider value={{

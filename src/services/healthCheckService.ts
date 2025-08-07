@@ -511,16 +511,8 @@ export const healthCheckManager = new HealthCheckManager();
 if (typeof window !== 'undefined' && import.meta.env.DEV) {
   // Esperar un poco antes de iniciar para que la app se cargue
   setTimeout(() => {
-    //healthCheckManager.start();
+    healthCheckManager.start();
   }, 5000);
 }
 
 export default healthCheckManager;
-// TEMPORALMENTE DESACTIVADO - CORS issues con n8n
-// // Auto-iniciar en desarrollo
-// if (typeof window !== 'undefined' && import.meta.env.DEV) {
-//   // Esperar un poco antes de iniciar para que la app se cargue
-//   setTimeout(() => {
-//     healthCheckManager.start();
-//   }, 5000);
-// }

@@ -9,50 +9,43 @@ interface AppConfig {
     logLevel: 'error' | 'warn' | 'info' | 'debug';
   };
   api: {
-    n8n: {
-      baseUrl: string;
-      apiKey?: string; // Mantener para webhooks
-      timeout: number;
-      retryAttempts: number;
-      retryDelay: number;
-      rateLimiting: {
-        enabled: boolean;
-        requestsPerMinute: number;
-        burstLimit: number;
-      };
-      batchSize: number;
-      healthCheckInterval: number;
-      webhookEndpoints: {
-        healthCheck: string;
-        facturaEmision: string;
-        facturaRecepcion: string;
-        ordenCompra: string;
-        ordenRecepcion: string;
-        pago: string;
-        stockMovimiento: string;
-        stockAlerta: string;
-        recetaCreacion: string;
-        recetaVenta: string;
-      };
-    };
     supabase: {
       url: string;
       anonKey: string;
-      serviceRoleKey?: string;
-      maxConnections: number;
-      connectionTimeout: number;
+    };
+    n8n: {
+      baseUrl: string;
+      apiKey: string;
+      timeout: number;
+      retryAttempts: number;
+      rateLimiting: boolean;
+      requestsPerMinute: number;
+      webhookEndpoints: Record<string, string>;
     };
   };
+  security: {
+    sessionTimeout: number;
+    maxLoginAttempts: number;
+    requireTwoFactor: boolean;
+    encryptLocalStorage: boolean;
+    passwordMinLength: number;
+  };
   features: {
-    recetasEnabled: boolean;
-    stockAlertsEnabled: boolean;
-    mercadoPagoEnabled: boolean;
-    afipIntegrationEnabled: boolean;
-    offlineSupport: boolean;
     realTimeSync: boolean;
-    batchProcessing: boolean;
-    advancedReports: boolean;
-    multiCompany: boolean;
+    n8nIntegration: boolean;
+    multiTenant: boolean; // Nueva opción
+    afipIntegration: boolean;
+    emailNotifications: boolean;
+    whatsappNotifications: boolean;
+    stockAlerts: boolean;
+    advancedAnalytics: boolean;
+  };
+  client: {
+    // Configuración simple para cliente único
+    id: string;
+    name: string;
+    webhookPrefix: string; // Puede ser vacío para webhooks simples
+    isMultiTenant: boolean;
   };
   validation: {
     cuitRequired: boolean;
@@ -72,13 +65,6 @@ interface AppConfig {
     currencyFormat: string;
     showAdvancedFeatures: boolean;
   };
-  security: {
-    sessionTimeout: number;
-    maxLoginAttempts: number;
-    passwordMinLength: number;
-    requireTwoFactor: boolean;
-    encryptLocalStorage: boolean;
-  };
   monitoring: {
     enableMetrics: boolean;
     enableErrorTracking: boolean;
@@ -97,19 +83,17 @@ const configSchema = z.object({
     logLevel: z.enum(['error', 'warn', 'info', 'debug'])
   }),
   api: z.object({
+    supabase: z.object({
+      url: z.string().url(),
+      anonKey: z.string()
+    }),
     n8n: z.object({
       baseUrl: z.string().url(),
-      apiKey: z.string().optional(),
+      apiKey: z.string(),
       timeout: z.number().min(1000).max(60000),
       retryAttempts: z.number().min(0).max(10),
-      retryDelay: z.number().min(100).max(10000),
-      rateLimiting: z.object({
-        enabled: z.boolean(),
-        requestsPerMinute: z.number().min(1).max(1000),
-        burstLimit: z.number().min(1).max(100)
-      }),
-      batchSize: z.number().min(1).max(100),
-      healthCheckInterval: z.number().min(10000).max(600000),
+      rateLimiting: z.boolean(),
+      requestsPerMinute: z.number().min(1).max(1000),
       webhookEndpoints: z.object({
         healthCheck: z.string(),
         facturaEmision: z.string(),
@@ -122,25 +106,23 @@ const configSchema = z.object({
         recetaCreacion: z.string(),
         recetaVenta: z.string()
       })
-    }),
-    supabase: z.object({
-      url: z.string().url(),
-      anonKey: z.string(),
-      serviceRoleKey: z.string().optional(),
-      maxConnections: z.number().min(1).max(100),
-      connectionTimeout: z.number().min(1000).max(30000)
     })
   }),
   features: z.object({
-    recetasEnabled: z.boolean(),
-    stockAlertsEnabled: z.boolean(),
-    mercadoPagoEnabled: z.boolean(),
-    afipIntegrationEnabled: z.boolean(),
-    offlineSupport: z.boolean(),
     realTimeSync: z.boolean(),
-    batchProcessing: z.boolean(),
-    advancedReports: z.boolean(),
-    multiCompany: z.boolean()
+    n8nIntegration: z.boolean(),
+    multiTenant: z.boolean(),
+    afipIntegration: z.boolean(),
+    emailNotifications: z.boolean(),
+    whatsappNotifications: z.boolean(),
+    stockAlerts: z.boolean(),
+    advancedAnalytics: z.boolean()
+  }),
+  client: z.object({
+    id: z.string(),
+    name: z.string(),
+    webhookPrefix: z.string().optional(),
+    isMultiTenant: z.boolean()
   }),
   validation: z.object({
     cuitRequired: z.boolean(),
@@ -184,19 +166,17 @@ const defaultConfig: AppConfig = {
     logLevel: import.meta.env.MODE === 'development' ? 'debug' : 'info'
   },
   api: {
+    supabase: {
+      url: import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321',
+      anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key'
+    },
     n8n: {
-      baseUrl: import.meta.env.VITE_N8N_URL || 'http://localhost:5678',
-      apiKey: import.meta.env.VITE_N8N_API_KEY, // Para webhooks
+      baseUrl: import.meta.env.VITE_N8N_BASE_URL || 'https://n8n.n8ncloud.top',
+      apiKey: import.meta.env.VITE_N8N_API_KEY || 'placeholder-api-key',
       timeout: 30000,
       retryAttempts: 3,
-      retryDelay: 1000,
-      rateLimiting: {
-        enabled: true,
-        requestsPerMinute: 60,
-        burstLimit: 10
-      },
-      batchSize: 10,
-      healthCheckInterval: 300000, // 5 minutos
+      rateLimiting: true,
+      requestsPerMinute: 60,
       webhookEndpoints: {
         healthCheck: '/webhook/health-check',
         facturaEmision: '/webhook/factura-emision',
@@ -209,25 +189,23 @@ const defaultConfig: AppConfig = {
         recetaCreacion: '/webhook/receta-creacion',
         recetaVenta: '/webhook/receta-venta'
       }
-    },
-    supabase: {
-      url: import.meta.env.VITE_SUPABASE_URL || 'http://localhost:54321',
-      anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key',
-      serviceRoleKey: import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
-      maxConnections: 10,
-      connectionTimeout: 10000
     }
   },
   features: {
-    recetasEnabled: false,
-    stockAlertsEnabled: true,
-    mercadoPagoEnabled: true,
-    afipIntegrationEnabled: false,
-    offlineSupport: true,
     realTimeSync: true,
-    batchProcessing: true,
-    advancedReports: false,
-    multiCompany: false
+    n8nIntegration: true,
+    multiTenant: false,
+    afipIntegration: false,
+    emailNotifications: true,
+    whatsappNotifications: true,
+    stockAlerts: true,
+    advancedAnalytics: false
+  },
+  client: {
+    id: 'default-client',
+    name: 'Default Client',
+    webhookPrefix: '',
+    isMultiTenant: false
   },
   validation: {
     cuitRequired: true,
@@ -250,9 +228,9 @@ const defaultConfig: AppConfig = {
   security: {
     sessionTimeout: 1800000, // 30 minutos
     maxLoginAttempts: 5,
-    passwordMinLength: 8,
     requireTwoFactor: false,
-    encryptLocalStorage: false
+    encryptLocalStorage: false,
+    passwordMinLength: 8
   },
   monitoring: {
     enableMetrics: true,
@@ -490,16 +468,12 @@ class ConfigManager {
     return this.config.app.logLevel;
   }
 
-  public get offlineSupportEnabled(): boolean {
-    return this.config.features.offlineSupport;
-  }
-
   public get realTimeSyncEnabled(): boolean {
     return this.config.features.realTimeSync;
   }
 
-  public get batchProcessingEnabled(): boolean {
-    return this.config.features.batchProcessing;
+  public get n8nIntegrationEnabled(): boolean {
+    return this.config.features.n8nIntegration;
   }
 
   // Métodos para validaciones específicas

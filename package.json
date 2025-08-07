@@ -12,6 +12,8 @@
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
     "setup": "node scripts/setup.js",
+    "setup:n8n": "node scripts/setup-n8n.js",
+    "setup:n8n:simple": "node scripts/setup-n8n-simple.js",
     "verify": "node scripts/verify.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
