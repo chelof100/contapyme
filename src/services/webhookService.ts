@@ -296,7 +296,14 @@ class WebhookService {
           });
         }
 
-        const fullUrl = `${this.config.baseUrl}${endpoint}`;
+        // Construir URL correctamente evitando doble slash
+        const baseUrl = this.config.baseUrl.endsWith('/') 
+          ? this.config.baseUrl.slice(0, -1) 
+          : this.config.baseUrl;
+        const endpointPath = endpoint.startsWith('/') 
+          ? endpoint 
+          : `/${endpoint}`;
+        const fullUrl = `${baseUrl}${endpointPath}`;
         console.log('🌐 [WebhookService] Haciendo petición a:', fullUrl);
         console.log('📤 [WebhookService] Opciones de fetch:', fetchOptions);
         

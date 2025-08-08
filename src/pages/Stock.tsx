@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Package, TrendingUp, TrendingDown, AlertCircle, FileText, Upload, Camera, X, Search, Filter, SortAsc, SortDesc, BarChart3, TrendingUp as TrendingUpIcon, Calendar, Download } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Package, TrendingUp, TrendingDown, AlertCircle, FileText, Upload, Camera, X, Search, Filter, SortAsc, SortDesc, BarChart3, TrendingUp as TrendingUpIcon, Calendar, Download, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProductos, useMovimientosStock, useAlertasStock, useRecetas } from '@/hooks/useSupabaseData';
 import { webhookService } from '@/services/webhookService';
@@ -43,22 +44,25 @@ const Stock = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterStock, setFilterStock] = useState('all');
-  const [sortBy, setSortBy] = useState('sku');
+  const [sortBy, setSortBy] = useState('codigo');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Estados para nuevo producto
   const [nuevoProducto, setNuevoProducto] = useState({
     sku: '',
+    nombre: '',
     descripcion: '',
-    unidad_medida: '',
-    precio_costo: 0,
-    precio_venta_sugerido: 0,
+    unidad_medida: 'unidad',
+    precio_compra: 0,
+    precio_venta: 0,
     stock_inicial: 0,
     categoria: '',
-    proveedor_principal: '',
-    ubicacion: '',
     stock_minimo: 0
   });
+
+  // Estados para edición de producto
+  const [editingProducto, setEditingProducto] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Estados para movimientos
   const [movimiento, setMovimiento] = useState({
@@ -73,11 +77,52 @@ const Stock = () => {
     cliente: ''
   });
 
+  // Función para manejar edición de producto
+  const handleEditProducto = (producto: any) => {
+    setEditingProducto(producto);
+    setShowEditModal(true);
+  };
+
+  // Función para guardar edición de producto
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingProducto) return;
+
+    setLoading(true);
+
+    try {
+      await updateProducto(editingProducto.id, {
+        sku: editingProducto.sku,
+        codigo: editingProducto.codigo,
+        nombre: editingProducto.nombre,
+        descripcion: editingProducto.descripcion,
+        unidad_medida: editingProducto.unidad_medida,
+        precio_compra: editingProducto.precio_compra,
+        precio_venta: editingProducto.precio_venta,
+        stock_actual: editingProducto.stock_actual,
+        stock_minimo: editingProducto.stock_minimo,
+        categoria: editingProducto.categoria,
+        activo: editingProducto.activo
+      });
+
+      toast.success('Producto actualizado correctamente');
+      setShowEditModal(false);
+      setEditingProducto(null);
+
+    } catch (error) {
+      console.error('Error al actualizar producto:', error);
+      toast.error('Error al actualizar producto');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Función para manejar nuevo producto
   const handleNuevoProducto = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!nuevoProducto.sku || !nuevoProducto.descripcion || !nuevoProducto.unidad_medida) {
+    if (!nuevoProducto.sku || !nuevoProducto.nombre || !nuevoProducto.unidad_medida) {
       toast.error('Por favor complete todos los campos obligatorios');
       return;
     }
@@ -87,15 +132,15 @@ const Stock = () => {
     try {
       const productoData = {
         sku: nuevoProducto.sku,
+        codigo: nuevoProducto.sku, // Usar el mismo valor para ambos campos
+        nombre: nuevoProducto.nombre,
         descripcion: nuevoProducto.descripcion,
         unidad_medida: nuevoProducto.unidad_medida,
-        precio_costo: nuevoProducto.precio_costo,
-        precio_venta_sugerido: nuevoProducto.precio_venta_sugerido,
+        precio_compra: nuevoProducto.precio_compra,
+        precio_venta: nuevoProducto.precio_venta,
         stock_actual: nuevoProducto.stock_inicial,
         stock_minimo: nuevoProducto.stock_minimo,
         categoria: nuevoProducto.categoria,
-        proveedor_principal: nuevoProducto.proveedor_principal,
-        ubicacion: nuevoProducto.ubicacion,
         activo: true
       };
 
@@ -117,19 +162,18 @@ const Stock = () => {
         });
       }
 
-      toast.success(`Producto "${nuevoProducto.descripcion}" creado exitosamente`);
+      toast.success(`Producto "${nuevoProducto.nombre}" creado exitosamente`);
       
       // Limpiar formulario
       setNuevoProducto({
         sku: '',
+        nombre: '',
         descripcion: '',
-        unidad_medida: '',
-        precio_costo: 0,
-        precio_venta_sugerido: 0,
+        unidad_medida: 'unidad',
+        precio_compra: 0,
+        precio_venta: 0,
         stock_inicial: 0,
         categoria: '',
-        proveedor_principal: '',
-        ubicacion: '',
         stock_minimo: 0
       });
     } catch (error) {
@@ -260,8 +304,8 @@ const Stock = () => {
   const getFilteredAndSortedProductos = () => {
     let filtered = productos.filter(producto => {
       const matchesSearch = searchTerm === '' || 
-        producto.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        producto.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        producto.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
         producto.categoria?.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory = filterCategory === 'all' || producto.categoria === filterCategory;
@@ -283,29 +327,29 @@ const Stock = () => {
       let aValue, bValue;
       
       switch (sortBy) {
-        case 'sku':
-          aValue = a.sku;
-          bValue = b.sku;
+        case 'codigo':
+          aValue = a.codigo;
+          bValue = b.codigo;
           break;
-        case 'descripcion':
-          aValue = a.descripcion;
-          bValue = b.descripcion;
+        case 'nombre':
+          aValue = a.nombre;
+          bValue = b.nombre;
           break;
         case 'stock':
           aValue = a.stock_actual;
           bValue = b.stock_actual;
           break;
         case 'precio':
-          aValue = a.precio_costo || 0;
-          bValue = b.precio_costo || 0;
+          aValue = a.precio_compra || 0;
+          bValue = b.precio_compra || 0;
           break;
         case 'categoria':
           aValue = a.categoria || '';
           bValue = b.categoria || '';
           break;
         default:
-          aValue = a.sku;
-          bValue = b.sku;
+          aValue = a.codigo;
+          bValue = b.codigo;
       }
       
       if (sortOrder === 'asc') {
@@ -430,7 +474,10 @@ const Stock = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setActiveTab('alertas')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Productos Bajo Stock</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
@@ -439,7 +486,10 @@ const Stock = () => {
             <div className="text-2xl font-bold">
               {loadingProductos ? '...' : alertasStock.length}
             </div>
-            <p className="text-xs text-muted-foreground">requieren atención</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">requieren atención</p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
@@ -495,7 +545,7 @@ const Stock = () => {
                      <div className="relative">
                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                        <Input
-                         placeholder="Buscar por SKU, descripción o categoría..."
+                         placeholder="Buscar por código, nombre o categoría..."
                          value={searchTerm}
                          onChange={(e) => setSearchTerm(e.target.value)}
                          className="pl-10"
@@ -582,11 +632,11 @@ const Stock = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>SKU</TableHead>
-                      <TableHead>Descripción</TableHead>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Nombre</TableHead>
                       <TableHead>Unidad</TableHead>
                       <TableHead>Stock Actual</TableHead>
-                      <TableHead>Precio Costo</TableHead>
+                      <TableHead>Precio Compra</TableHead>
                       <TableHead>Precio Venta</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -605,8 +655,8 @@ const Stock = () => {
                     ) : (
                       getFilteredAndSortedProductos().map((producto) => (
                         <TableRow key={producto.id}>
-                          <TableCell className="font-medium">{producto.sku}</TableCell>
-                          <TableCell>{producto.descripcion}</TableCell>
+                          <TableCell className="font-medium">{producto.codigo}</TableCell>
+                          <TableCell>{producto.nombre}</TableCell>
                           <TableCell>{producto.unidad_medida}</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -616,15 +666,19 @@ const Stock = () => {
                               {getStockBadge(producto)}
                             </div>
                           </TableCell>
-                          <TableCell>${producto.precio_costo?.toFixed(2) || '0.00'}</TableCell>
-                          <TableCell>${producto.precio_venta_sugerido?.toFixed(2) || '0.00'}</TableCell>
+                          <TableCell>${producto.precio_compra?.toFixed(2) || '0.00'}</TableCell>
+                          <TableCell>${producto.precio_venta?.toFixed(2) || '0.00'}</TableCell>
                           <TableCell>
                             <Badge variant={producto.activo ? 'default' : 'secondary'}>
                               {producto.activo ? 'Activo' : 'Inactivo'}
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button size="sm" variant="outline">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleEditProducto(producto)}
+                            >
                               Editar
                             </Button>
                           </TableCell>
@@ -657,13 +711,22 @@ const Stock = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="descripcion">Descripción *</Label>
+                    <Label htmlFor="nombre">Nombre *</Label>
+                    <Input
+                      id="nombre"
+                      value={nuevoProducto.nombre}
+                      onChange={(e) => setNuevoProducto({...nuevoProducto, nombre: e.target.value})}
+                      placeholder="Nombre del producto"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="descripcion">Descripción</Label>
                     <Input
                       id="descripcion"
                       value={nuevoProducto.descripcion}
                       onChange={(e) => setNuevoProducto({...nuevoProducto, descripcion: e.target.value})}
-                      placeholder="Nombre del producto"
-                      required
+                      placeholder="Descripción del producto"
                     />
                   </div>
                   <div className="space-y-2">
@@ -696,24 +759,24 @@ const Stock = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="precio_costo">Precio de Costo</Label>
+                    <Label htmlFor="precio_compra">Precio de Compra</Label>
                     <Input
-                      id="precio_costo"
+                      id="precio_compra"
                       type="number"
                       step="0.01"
-                      value={nuevoProducto.precio_costo}
-                      onChange={(e) => setNuevoProducto({...nuevoProducto, precio_costo: parseFloat(e.target.value) || 0})}
+                      value={nuevoProducto.precio_compra}
+                      onChange={(e) => setNuevoProducto({...nuevoProducto, precio_compra: parseFloat(e.target.value) || 0})}
                       placeholder="0.00"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="precio_venta">Precio de Venta Sugerido</Label>
+                    <Label htmlFor="precio_venta">Precio de Venta</Label>
                     <Input
                       id="precio_venta"
                       type="number"
                       step="0.01"
-                      value={nuevoProducto.precio_venta_sugerido}
-                      onChange={(e) => setNuevoProducto({...nuevoProducto, precio_venta_sugerido: parseFloat(e.target.value) || 0})}
+                      value={nuevoProducto.precio_venta}
+                      onChange={(e) => setNuevoProducto({...nuevoProducto, precio_venta: parseFloat(e.target.value) || 0})}
                       placeholder="0.00"
                     />
                   </div>
@@ -737,24 +800,7 @@ const Stock = () => {
                       placeholder="0"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="proveedor">Proveedor Principal</Label>
-                    <Input
-                      id="proveedor"
-                      value={nuevoProducto.proveedor_principal}
-                      onChange={(e) => setNuevoProducto({...nuevoProducto, proveedor_principal: e.target.value})}
-                      placeholder="Nombre del proveedor"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="ubicacion">Ubicación</Label>
-                    <Input
-                      id="ubicacion"
-                      value={nuevoProducto.ubicacion}
-                      onChange={(e) => setNuevoProducto({...nuevoProducto, ubicacion: e.target.value})}
-                      placeholder="Ubicación en almacén"
-                    />
-                  </div>
+
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Creando...' : 'Crear Producto'}
@@ -795,15 +841,15 @@ const Stock = () => {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sku_movimiento">SKU del Producto</Label>
+                    <Label htmlFor="sku_movimiento">Código del Producto</Label>
                     <Select value={movimiento.sku} onValueChange={(value) => setMovimiento({...movimiento, sku: value})}>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar producto" />
                       </SelectTrigger>
                       <SelectContent>
                         {productos.map((producto) => (
-                          <SelectItem key={producto.id} value={producto.sku}>
-                            {producto.sku} - {producto.descripcion}
+                          <SelectItem key={producto.id} value={producto.codigo}>
+                            {producto.codigo} - {producto.nombre}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1116,7 +1162,7 @@ const Stock = () => {
                                  #{index + 1}
                                </span>
                                <div>
-                                 <p className="font-medium">{producto?.descripcion || sku}</p>
+                                 <p className="font-medium">{producto?.nombre || sku}</p>
                                  <p className="text-sm text-muted-foreground">{sku}</p>
                                </div>
                              </div>
@@ -1363,6 +1409,158 @@ const Stock = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Edición de Producto */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Editar Producto</DialogTitle>
+          </DialogHeader>
+          {editingProducto && (
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-sku">SKU *</Label>
+                  <Input
+                    id="edit-sku"
+                    value={editingProducto.sku}
+                    onChange={(e) => setEditingProducto({...editingProducto, sku: e.target.value})}
+                    placeholder="Código del producto"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-nombre">Nombre *</Label>
+                  <Input
+                    id="edit-nombre"
+                    value={editingProducto.nombre}
+                    onChange={(e) => setEditingProducto({...editingProducto, nombre: e.target.value})}
+                    placeholder="Nombre del producto"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-descripcion">Descripción</Label>
+                  <Input
+                    id="edit-descripcion"
+                    value={editingProducto.descripcion || ''}
+                    onChange={(e) => setEditingProducto({...editingProducto, descripcion: e.target.value})}
+                    placeholder="Descripción del producto"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unidad">Unidad de Medida *</Label>
+                  <Select 
+                    value={editingProducto.unidad_medida} 
+                    onValueChange={(value) => setEditingProducto({...editingProducto, unidad_medida: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar unidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unidad">Unidad</SelectItem>
+                      <SelectItem value="kg">Kilogramo</SelectItem>
+                      <SelectItem value="l">Litro</SelectItem>
+                      <SelectItem value="m">Metro</SelectItem>
+                      <SelectItem value="m2">Metro Cuadrado</SelectItem>
+                      <SelectItem value="m3">Metro Cúbico</SelectItem>
+                      <SelectItem value="par">Par</SelectItem>
+                      <SelectItem value="docena">Docena</SelectItem>
+                      <SelectItem value="caja">Caja</SelectItem>
+                      <SelectItem value="pack">Pack</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-categoria">Categoría</Label>
+                  <Input
+                    id="edit-categoria"
+                    value={editingProducto.categoria || ''}
+                    onChange={(e) => setEditingProducto({...editingProducto, categoria: e.target.value})}
+                    placeholder="Categoría del producto"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-precio-compra">Precio de Compra</Label>
+                  <Input
+                    id="edit-precio-compra"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingProducto.precio_compra || 0}
+                    onChange={(e) => setEditingProducto({...editingProducto, precio_compra: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-precio-venta">Precio de Venta</Label>
+                  <Input
+                    id="edit-precio-venta"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingProducto.precio_venta || 0}
+                    onChange={(e) => setEditingProducto({...editingProducto, precio_venta: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-stock-actual">Stock Actual</Label>
+                  <Input
+                    id="edit-stock-actual"
+                    type="number"
+                    min="0"
+                    value={editingProducto.stock_actual || 0}
+                    onChange={(e) => setEditingProducto({...editingProducto, stock_actual: parseInt(e.target.value) || 0})}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-stock-minimo">Stock Mínimo</Label>
+                  <Input
+                    id="edit-stock-minimo"
+                    type="number"
+                    min="0"
+                    value={editingProducto.stock_minimo || 0}
+                    onChange={(e) => setEditingProducto({...editingProducto, stock_minimo: parseInt(e.target.value) || 0})}
+                    placeholder="0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-activo">Estado</Label>
+                  <Select 
+                    value={editingProducto.activo ? 'activo' : 'inactivo'} 
+                    onValueChange={(value) => setEditingProducto({...editingProducto, activo: value === 'activo'})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="activo">Activo</SelectItem>
+                      <SelectItem value="inactivo">Inactivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={loading}
+                >
+                  {loading ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

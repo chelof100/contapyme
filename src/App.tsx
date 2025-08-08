@@ -140,6 +140,13 @@ const App = () => (
                 </Layout>
               </ProtectedRoute>
             } />
+            <Route path="/erp/rentabilidad" element={
+              <ProtectedRoute>
+                <Layout>
+                  <Finanzas />
+                </Layout>
+              </ProtectedRoute>
+            } />
             <Route path="/admin/usuarios" element={
               <ProtectedRoute>
                 <Layout>

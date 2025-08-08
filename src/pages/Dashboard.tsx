@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,8 @@ import {
   User,
   Folder,
   Megaphone,
-  ChefHat
+  ChefHat,
+  ArrowRight
 } from 'lucide-react';
 import { useDashboardData } from '@/hooks/useSupabaseData';
 import { useCRMDashboard } from '@/hooks/useCRMData';
@@ -49,6 +51,7 @@ const getIconComponent = (iconName: string) => {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { recetasEnabled } = useConfig();
   const dashboardData = useDashboardData();
   const crmData = useCRMDashboard();
@@ -160,100 +163,169 @@ const Dashboard = () => {
       {/* Main Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Accounting Metrics */}
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'facturas', '/facturas');
+            navigate('/facturas');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Facturas Emitidas</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dashboardData.facturas.emitidas}</div>
-            <p className="text-xs text-muted-foreground">
-              {dashboardData.facturas.pendientes} pendientes
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {dashboardData.facturas.pendientes} pendientes
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'ordenes', '/ordenes-compra');
+            navigate('/ordenes-compra');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Órdenes Abiertas</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dashboardData.ordenes.abiertas}</div>
-            <p className="text-xs text-muted-foreground">
-              {dashboardData.ordenes.cerradas} cerradas
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {dashboardData.ordenes.cerradas} cerradas
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'stock', '/stock');
+            navigate('/stock');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Productos en Stock</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dashboardData.productos.total}</div>
-            <p className="text-xs text-muted-foreground">
-              {dashboardData.productos.stockBajo} con stock bajo
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {dashboardData.productos.stockBajo} con stock bajo
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'pagos', '/pagos');
+            navigate('/pagos');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pagos del Mes</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{dashboardData.pagos.total}</div>
-            <p className="text-xs text-muted-foreground">
-              ${dashboardData.pagos.monto.toLocaleString('es-AR')}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                ${dashboardData.pagos.monto.toLocaleString('es-AR')}
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
         {/* CRM Metrics */}
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'clientes', '/crm/clientes');
+            navigate('/crm/clientes');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clientes Activos</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{crmData.clientes.activos}</div>
-            <p className="text-xs text-muted-foreground">
-              {crmData.clientes.prospectos} prospectos
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {crmData.clientes.prospectos} prospectos
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'pipeline', '/crm/oportunidades');
+            navigate('/crm/oportunidades');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pipeline de Ventas</CardTitle>
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{crmData.oportunidades.abiertas}</div>
-            <p className="text-xs text-muted-foreground">
-              ${crmData.oportunidades.valorTotal.toLocaleString('es-AR')}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                ${crmData.oportunidades.valorTotal.toLocaleString('es-AR')}
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'actividades', '/crm/actividades');
+            navigate('/crm/actividades');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Actividades Pendientes</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{crmData.actividades.pendientes}</div>
-            <p className="text-xs text-muted-foreground">
-              {crmData.actividades.vencidas} vencidas
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {crmData.actividades.vencidas} vencidas
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
         {/* ERP Metrics */}
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'finanzas', '/erp/finanzas');
+            navigate('/erp/finanzas');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cash Flow Mes</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -262,48 +334,78 @@ const Dashboard = () => {
             <div className="text-2xl font-bold">
               ${erpData.finanzas.cashFlowMes.toLocaleString('es-AR')}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {erpData.finanzas.presupuestoVsReal.toFixed(1)}% vs presupuesto
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.finanzas.presupuestoVsReal.toFixed(1)}% vs presupuesto
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'empleados', '/erp/empleados');
+            navigate('/erp/empleados');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Empleados Activos</CardTitle>
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{erpData.empleados.activos}</div>
-            <p className="text-xs text-muted-foreground">
-              {erpData.empleados.enLicencia} en licencia
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.empleados.enLicencia} en licencia
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'proyectos', '/erp/proyectos');
+            navigate('/erp/proyectos');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Proyectos Activos</CardTitle>
             <Folder className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{erpData.proyectos.activos}</div>
-            <p className="text-xs text-muted-foreground">
-              {erpData.proyectos.facturacionPendiente.toFixed(1)} hs por facturar
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.proyectos.facturacionPendiente.toFixed(1)} hs por facturar
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'rentabilidad', '/erp/rentabilidad');
+            navigate('/erp/rentabilidad');
+          }}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Rentabilidad</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{erpData.finanzas.rentabilidad.toFixed(1)}%</div>
-            <p className="text-xs text-muted-foreground">
-              {erpData.proyectos.rentabilidadPromedio.toFixed(1)}% proyectos
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.proyectos.rentabilidadPromedio.toFixed(1)}% proyectos
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
       </div>

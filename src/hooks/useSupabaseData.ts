@@ -86,7 +86,25 @@ export function useSupabaseData<T>(
   }, [table, select, JSON.stringify(filters), user?.id, profile?.empresa_id, enabled]);
 
   const create = useCallback(async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T | null> => {
+    // Debugging temporal - MÁS VISIBLE
+    console.log('🚨🚨🚨 [AUTH DEBUG] ==========================================');
+    console.log('🔍 [useSupabaseData] Debugging create:', {
+      user: !!user,
+      user_id: user?.id,
+      profile: !!profile,
+      empresa_id: profile?.empresa_id,
+      table
+    });
+    console.log('🚨🚨🚨 [AUTH DEBUG] ==========================================');
+    
     if (!user || !profile?.empresa_id) {
+      console.error('❌❌❌ [AUTH ERROR] ==========================================');
+      console.error('❌ [useSupabaseData] Auth check failed:', {
+        user_exists: !!user,
+        profile_exists: !!profile,
+        empresa_id: profile?.empresa_id
+      });
+      console.error('❌❌❌ [AUTH ERROR] ==========================================');
       toast.error('Usuario no autenticado');
       return null;
     }
@@ -275,17 +293,24 @@ export function usePagos() {
 export function useProductos() {
   return useSupabaseData<{
     id: string;
+    empresa_id: string;
     sku: string;
+    codigo: string;
+    nombre: string;
     descripcion: string;
-    unidad_medida: string;
     precio_costo: number;
     precio_venta_sugerido: number;
+    precio_compra: number;
+    precio_venta: number;
     stock_actual: number;
     stock_minimo: number;
     categoria: string;
     proveedor_principal: string;
     ubicacion: string;
+    unidad_medida: string;
     activo: boolean;
+    created_at: string;
+    updated_at: string;
   }>('productos');
 }
 

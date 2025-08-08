@@ -80,8 +80,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Get default empresa
       const { data: empresas, error: empresaError } = await supabase
         .from('empresas')
-        .select('id, nombre')
-        .eq('nombre', 'ContaPYME Default')
+        .select('id, razon_social')
+        .eq('razon_social', 'ContaPYME Default')
         .single();
 
       if (empresaError || !empresas) {
@@ -133,6 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session);
       
       if (session?.user) {
+        console.log('🔍 [AuthContext] User session detected:', session.user.email);
+        
         // Create extended user with legacy properties
         const extendedUser: ExtendedUser = {
           ...session.user,
@@ -158,20 +160,75 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
             
-            if (mounted) {
-              setProfile(profileData);
-              
-              if (profileData) {
-                // Update user with profile data
-                const updatedUser: ExtendedUser = {
-                  ...extendedUser,
-                  pyme_id: profileData.empresa_id || '',
-                  pyme_nombre: 'ContaPYME',
-                  permissions: getRolePermissions(profileData.role)
-                };
-                setUser(updatedUser);
-              }
-            }
+                         if (mounted) {
+               setProfile(profileData);
+               
+               if (profileData) {
+                 console.log('✅ [AuthContext] Profile loaded successfully:', {
+                   empresa_id: profileData.empresa_id,
+                   role: profileData.role
+                 });
+                 
+                 // Si el perfil no tiene empresa_id, asignarle la empresa por defecto
+                 if (!profileData.empresa_id) {
+                   console.log('⚠️ [AuthContext] Profile has no empresa_id, assigning default empresa...');
+                   
+                                       // Obtener empresa por defecto
+                    console.log('🔍 [AuthContext] Buscando empresa por defecto...');
+                    const { data: empresaDefault, error: empresaError } = await supabase
+                      .from('empresas')
+                      .select('id')
+                      .eq('razon_social', 'ContaPYME Default')
+                      .single();
+                    
+                    console.log('🔍 [AuthContext] Resultado búsqueda empresa:', { data: empresaDefault, error: empresaError });
+                   
+                                       if (empresaDefault?.id) {
+                      console.log('✅ [AuthContext] Empresa encontrada:', empresaDefault.id);
+                      // Actualizar perfil con empresa_id
+                      const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({ empresa_id: empresaDefault.id })
+                        .eq('id', session.user.id);
+                      
+                      if (!updateError) {
+                        console.log('✅ [AuthContext] Profile updated with empresa_id:', empresaDefault.id);
+                        profileData.empresa_id = empresaDefault.id;
+                      } else {
+                        console.error('❌ [AuthContext] Error updating profile:', updateError);
+                      }
+                    } else {
+                      console.error('❌ [AuthContext] No se encontró empresa por defecto:', empresaError);
+                      // Usar ID por defecto como fallback
+                      const fallbackEmpresaId = '00000000-0000-0000-0000-000000000001';
+                      console.log('⚠️ [AuthContext] Usando empresa fallback:', fallbackEmpresaId);
+                      
+                      const { error: updateError } = await supabase
+                        .from('profiles')
+                        .update({ empresa_id: fallbackEmpresaId })
+                        .eq('id', session.user.id);
+                      
+                      if (!updateError) {
+                        console.log('✅ [AuthContext] Profile updated with fallback empresa_id:', fallbackEmpresaId);
+                        profileData.empresa_id = fallbackEmpresaId;
+                      } else {
+                        console.error('❌ [AuthContext] Error updating profile with fallback:', updateError);
+                      }
+                    }
+                 }
+                 
+                 // Update user with profile data
+                 const updatedUser: ExtendedUser = {
+                   ...extendedUser,
+                   pyme_id: profileData.empresa_id || '',
+                   pyme_nombre: 'ContaPYME',
+                   permissions: getRolePermissions(profileData.role)
+                 };
+                 setUser(updatedUser);
+               } else {
+                 console.error('❌ [AuthContext] No profile found for user:', session.user.email);
+               }
+             }
           } catch (error) {
             console.error('Error in profile handling:', error);
           }
@@ -276,7 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data: empresaDefault } = await supabase
         .from('empresas')
         .select('id')
-        .eq('nombre', 'ContaPYME Default')
+        .eq('razon_social', 'ContaPYME Default')
         .single();
       
       let empresaId = empresaDefault?.id || null;
@@ -287,13 +344,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { data: newEmpresa, error: empresaError } = await supabase
             .from('empresas')
             .insert({
-              nombre: 'ContaPYME Default',
-              rut: '20-12345678-9',
+              razon_social: 'ContaPYME Default',
+              nombre_fantasia: 'ContaPYME',
+              cuit: '20-12345678-9',
               email: 'admin@contapyme.com',
               telefono: '+54 11 1234-5678',
-              direccion: 'Av. Corrientes 1234, CABA',
-              sector: 'Servicios',
-              tipo_empresa: 'PYME'
+              domicilio: 'Av. Corrientes 1234, CABA',
+              condicion_iva: 'Responsable Inscripto',
+              activa: true
             })
             .select('id')
             .single();
@@ -301,18 +359,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!empresaError && newEmpresa) {
             empresaId = newEmpresa.id;
             console.log('Created default empresa with ID:', empresaId);
+          } else {
+            console.error('Error creating default empresa:', empresaError);
+            // Usar ID por defecto si falla la creación
+            empresaId = '00000000-0000-0000-0000-000000000001';
           }
         } catch (error) {
           console.error('Error creating default empresa:', error);
+          // Usar ID por defecto si falla la creación
+          empresaId = '00000000-0000-0000-0000-000000000001';
         }
       }
       
       console.log('Mock login - empresa found:', empresaId);
       
+      // Asegurar que empresaId nunca sea null
+      const finalEmpresaId = empresaId || '00000000-0000-0000-0000-000000000001';
+      
       const mockUser: ExtendedUser = {
         id: 'test-user-id-12345678901234567890',
         email: 'admin@contapyme.com',
-        pyme_id: empresaId,
+        pyme_id: finalEmpresaId,
         pyme_nombre: 'ContaPYME Default',
         permissions: ['developer_config', 'manage_users', 'view_all', 'edit_all'],
         aud: 'authenticated',
@@ -332,7 +399,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         first_name: 'Admin',
         last_name: 'Usuario',
         email: 'admin@contapyme.com',
-        empresa_id: empresaId,
+        empresa_id: finalEmpresaId,
         role: 'admin',
         avatar_url: null
       };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import '@/styles/user-config.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +26,50 @@ const Configuracion: React.FC = () => {
   });
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [connectionResult, setConnectionResult] = useState<any>(null);
+  const [lastN8nCheck, setLastN8nCheck] = useState<Date | null>(null);
+  const [n8nCheckInterval, setN8nCheckInterval] = useState<NodeJS.Timeout | null>(null);
   const [webhookMetrics, setWebhookMetrics] = useState<any>(null);
+  const [supabaseConnectionStatus, setSupabaseConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [supabaseConnectionResult, setSupabaseConnectionResult] = useState<any>(null);
+  const [lastSupabaseCheck, setLastSupabaseCheck] = useState<Date | null>(null);
+  const [supabaseCheckInterval, setSupabaseCheckInterval] = useState<NodeJS.Timeout | null>(null);
+  
+  // Estados para configuraciones de usuario
+  const [userConfig, setUserConfig] = useState(() => {
+    const saved = localStorage.getItem('contapyme_user_config');
+    return saved ? JSON.parse(saved) : {
+      theme: 'system',
+      language: 'es',
+      notifications: true,
+      sound: true,
+      density: 'comfortable',
+      animations: true,
+      sidebar: true
+    };
+  });
+
+  // Aplicar configuraciones de usuario al cargar
+  useEffect(() => {
+    // Aplicar tema
+    if (userConfig.theme) {
+      document.documentElement.setAttribute('data-theme', userConfig.theme);
+    }
+    
+    // Aplicar densidad
+    if (userConfig.density) {
+      document.body.className = document.body.className.replace(/density-\w+/g, '');
+      document.body.classList.add(`density-${userConfig.density}`);
+    }
+    
+    // Aplicar animaciones
+    if (userConfig.animations !== undefined) {
+      if (userConfig.animations) {
+        document.body.classList.remove('no-animations');
+      } else {
+        document.body.classList.add('no-animations');
+      }
+    }
+  }, [userConfig]);
   
   // Estados para configuración avanzada de webhooks
   const [webhookConfig, setWebhookConfig] = useState(() => {
@@ -54,6 +98,20 @@ const Configuracion: React.FC = () => {
     // Cargar métricas de webhooks
     const metrics = webhookService.getMetrics();
     setWebhookMetrics(metrics);
+
+    // Iniciar monitoreo automático de Supabase y n8n
+    startSupabaseMonitoring();
+    startN8nMonitoring();
+
+    // Limpiar intervalos al desmontar
+    return () => {
+      if (supabaseCheckInterval) {
+        clearInterval(supabaseCheckInterval);
+      }
+      if (n8nCheckInterval) {
+        clearInterval(n8nCheckInterval);
+      }
+    };
   }, []);
 
   const handleConfigUpdate = (updates: any) => {
@@ -82,9 +140,9 @@ const Configuracion: React.FC = () => {
           description: "La URL de n8n debe comenzar con http:// o https://",
           variant: "destructive",
         });
-        return;
-      }
-
+      return;
+    }
+    
       // Actualizar configuración
       configManager.updateN8nConfig({
         baseUrl: n8nConfig.baseUrl,
@@ -112,7 +170,7 @@ const Configuracion: React.FC = () => {
     }
   };
 
-  const testN8nConnection = async () => {
+    const testN8nConnection = async (showToast: boolean = false) => {
     setConnectionStatus('testing');
     setConnectionResult(null);
 
@@ -122,26 +180,62 @@ const Configuracion: React.FC = () => {
       
       if (result.success) {
         setConnectionStatus('success');
-        toast({
-          title: "Conexión exitosa",
-          description: "n8n está conectado y funcionando correctamente.",
-        });
+        setLastN8nCheck(new Date());
+        
+        if (showToast) {
+          toast({
+            title: "Conexión exitosa",
+            description: "n8n está conectado y funcionando correctamente.",
+          });
+        }
       } else {
         setConnectionStatus('error');
+        setLastN8nCheck(new Date());
+        
+        if (showToast) {
+          toast({
+            title: "Error de conexión",
+            description: result.error || "No se pudo conectar con n8n.",
+            variant: "destructive",
+          });
+        }
+      }
+      } catch (error) {
+      setConnectionStatus('error');
+      setConnectionResult({ error: error instanceof Error ? error.message : 'Error desconocido' });
+      setLastN8nCheck(new Date());
+      
+      if (showToast) {
         toast({
           title: "Error de conexión",
-          description: result.error || "No se pudo conectar con n8n.",
+          description: "No se pudo conectar con n8n.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      setConnectionStatus('error');
-      setConnectionResult({ error: error instanceof Error ? error.message : 'Error desconocido' });
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo conectar con n8n.",
-        variant: "destructive",
-      });
+    }
+  };
+
+  const startN8nMonitoring = () => {
+    // Limpiar intervalo existente si hay uno
+    if (n8nCheckInterval) {
+      clearInterval(n8nCheckInterval);
+    }
+
+    // Realizar primera verificación inmediatamente
+    testN8nConnection(false);
+
+    // Configurar intervalo de verificación cada 2 minutos (120000 ms)
+    const interval = setInterval(() => {
+      testN8nConnection(false);
+    }, 120000); // 2 minutos
+
+    setN8nCheckInterval(interval);
+  };
+
+  const stopN8nMonitoring = () => {
+    if (n8nCheckInterval) {
+      clearInterval(n8nCheckInterval);
+      setN8nCheckInterval(null);
     }
   };
 
@@ -171,6 +265,140 @@ const Configuracion: React.FC = () => {
     }
   };
 
+  const testSupabaseConnection = async (showToast: boolean = false) => {
+    setSupabaseConnectionStatus('testing');
+    setSupabaseConnectionResult(null);
+    
+    try {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data, error } = await supabase.from('empresas').select('count').limit(1);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setSupabaseConnectionResult({ 
+        success: true, 
+        message: 'Conexión exitosa con Supabase',
+        data: data,
+        timestamp: new Date().toISOString()
+      });
+      setSupabaseConnectionStatus('success');
+      setLastSupabaseCheck(new Date());
+      
+      if (showToast) {
+        toast({
+          title: "Conexión exitosa",
+          description: "La conexión con Supabase se estableció correctamente.",
+        });
+      }
+    } catch (error) {
+      setSupabaseConnectionResult({ 
+        error: error instanceof Error ? error.message : 'Error desconocido',
+        success: false,
+        timestamp: new Date().toISOString()
+      });
+      setSupabaseConnectionStatus('error');
+      setLastSupabaseCheck(new Date());
+      
+      if (showToast) {
+        toast({
+          title: "Error de conexión",
+          description: "No se pudo conectar con Supabase. Verifica la URL y API Key.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const startSupabaseMonitoring = () => {
+    // Limpiar intervalo existente si hay uno
+    if (supabaseCheckInterval) {
+      clearInterval(supabaseCheckInterval);
+    }
+
+    // Realizar primera verificación inmediatamente
+    testSupabaseConnection(false);
+
+    // Configurar intervalo de verificación cada 2 minutos (120000 ms)
+    const interval = setInterval(() => {
+      testSupabaseConnection(false);
+    }, 120000); // 2 minutos
+
+    setSupabaseCheckInterval(interval);
+  };
+
+  const stopSupabaseMonitoring = () => {
+    if (supabaseCheckInterval) {
+      clearInterval(supabaseCheckInterval);
+      setSupabaseCheckInterval(null);
+    }
+  };
+
+  // Funciones para configuraciones de usuario
+  const updateUserConfig = (updates: any) => {
+    const newConfig = { ...userConfig, ...updates };
+    setUserConfig(newConfig);
+    localStorage.setItem('contapyme_user_config', JSON.stringify(newConfig));
+    
+    // Aplicar cambios inmediatamente
+    if (updates.theme) {
+      document.documentElement.setAttribute('data-theme', updates.theme);
+    }
+    
+    // Aplicar otros cambios visuales
+    if (updates.density) {
+      document.body.className = document.body.className.replace(/density-\w+/g, '');
+      document.body.classList.add(`density-${updates.density}`);
+    }
+    
+    if (updates.animations !== undefined) {
+      if (updates.animations) {
+        document.body.classList.remove('no-animations');
+      } else {
+        document.body.classList.add('no-animations');
+      }
+    }
+    
+    if (updates.sidebar !== undefined) {
+      // Aquí podrías emitir un evento para el sidebar
+      window.dispatchEvent(new CustomEvent('toggleSidebar', { 
+        detail: { visible: updates.sidebar } 
+      }));
+    }
+    
+    toast({
+      title: "Configuración guardada",
+      description: "Los cambios se han aplicado correctamente.",
+    });
+  };
+
+  const getSupabaseConnectionStatusIcon = () => {
+    switch (supabaseConnectionStatus) {
+      case 'success':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'testing':
+        return <AlertTriangle className="h-4 w-4 text-yellow-500 animate-spin" />;
+      default:
+        return <AlertTriangle className="h-4 w-4 text-gray-400" />;
+    }
+  };
+
+  const getSupabaseConnectionStatusText = () => {
+    switch (supabaseConnectionStatus) {
+      case 'success':
+        return 'Conectado';
+      case 'error':
+        return 'Error de conexión';
+      case 'testing':
+        return 'Probando conexión...';
+      default:
+        return 'No probado';
+    }
+  };
+
   // Funciones para configuración avanzada de webhooks
   const handleSaveWebhookConfig = async () => {
     try {
@@ -181,8 +409,8 @@ const Configuracion: React.FC = () => {
           description: "La URL base debe comenzar con http:// o https://",
           variant: "destructive",
         });
-        return;
-      }
+      return;
+    }
 
       // Guardar configuración en localStorage
       localStorage.setItem('webhook-endpoints', JSON.stringify(webhookConfig));
@@ -293,18 +521,17 @@ const Configuracion: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <div>
+      <div>
           <h1 className="text-3xl font-bold">Configuración</h1>
           <p className="text-muted-foreground">
             Configura los parámetros del sistema y las integraciones
           </p>
-        </div>
       </div>
+            </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="n8n">n8n</TabsTrigger>
           <TabsTrigger value="database">Base de Datos</TabsTrigger>
           <TabsTrigger value="multi-tenant">Multi-Tenant</TabsTrigger>
           <TabsTrigger value="developer">Desarrollador</TabsTrigger>
@@ -312,17 +539,483 @@ const Configuracion: React.FC = () => {
 
         <TabsContent value="general">
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Configuración General */}
+            {/* Configuración de Usuario */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Settings className="h-5 w-5" />
-                  Configuración General
+                  Configuración de Usuario
                 </CardTitle>
                 <CardDescription>
-                  Configuración básica de la aplicación
+                  Configuración personal del usuario
                 </CardDescription>
               </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Tema de la Aplicación</Label>
+                  <select
+                    id="theme"
+                    className="w-full p-2 border rounded-md"
+                    value={userConfig.theme}
+                    onChange={(e) => updateUserConfig({ theme: e.target.value })}
+                  >
+                    <option value="system">Sistema</option>
+                    <option value="light">Claro</option>
+                    <option value="dark">Oscuro</option>
+                  </select>
+                  </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="language">Idioma</Label>
+                  <select
+                    id="language"
+                    className="w-full p-2 border rounded-md"
+                    value={userConfig.language}
+                    onChange={(e) => updateUserConfig({ language: e.target.value })}
+                  >
+                    <option value="es">Español</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="notifications"
+                    checked={userConfig.notifications}
+                    onCheckedChange={(checked) => updateUserConfig({ notifications: checked })}
+                  />
+                  <Label htmlFor="notifications">Notificaciones del Sistema</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="sound"
+                    checked={userConfig.sound}
+                    onCheckedChange={(checked) => updateUserConfig({ sound: checked })}
+                  />
+                  <Label htmlFor="sound">Sonidos de Notificación</Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Configuración de Interfaz */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Interfaz de Usuario
+              </CardTitle>
+              <CardDescription>
+                  Configuración de la interfaz y experiencia de usuario
+              </CardDescription>
+            </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Densidad de la Interfaz</Label>
+                  <select
+                    className="w-full p-2 border rounded-md"
+                    value={userConfig.density}
+                    onChange={(e) => updateUserConfig({ density: e.target.value })}
+                  >
+                    <option value="compact">Compacta</option>
+                    <option value="comfortable">Cómoda</option>
+                    <option value="spacious">Espaciosa</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="animations"
+                    checked={userConfig.animations}
+                    onCheckedChange={(checked) => updateUserConfig({ animations: checked })}
+                  />
+                  <Label htmlFor="animations">Animaciones de Interfaz</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="sidebar"
+                    checked={userConfig.sidebar}
+                    onCheckedChange={(checked) => updateUserConfig({ sidebar: checked })}
+                  />
+                  <Label htmlFor="sidebar">Mostrar Barra Lateral</Label>
+                </div>
+            </CardContent>
+          </Card>
+                </div>
+
+          {/* Información del Sistema */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Información del Sistema</CardTitle>
+              <CardDescription>
+                Estado general y información del sistema
+              </CardDescription>
+            </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium">Sistema Operativo</span>
+                  </div>
+                    <p className="text-xs text-green-600 mt-1">Funcionando correctamente</p>
+                </div>
+
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium">Base de Datos</span>
+                  </div>
+                    <p className="text-xs text-blue-600 mt-1">Conectada</p>
+                </div>
+
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-purple-500" />
+                      <span className="text-sm font-medium">Automatizaciones</span>
+                  </div>
+                    <p className="text-xs text-purple-600 mt-1">Disponibles</p>
+                </div>
+
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm font-medium">Sincronización</span>
+                  </div>
+                    <p className="text-xs text-orange-600 mt-1">En tiempo real</p>
+                </div>
+                </div>
+
+                <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    <strong>Nota:</strong> Para configuraciones técnicas avanzadas, 
+                    consulta la sección <strong>Desarrollador</strong>.
+                    </p>
+                  </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+
+
+        <TabsContent value="database">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                  Estado del Sistema
+                </CardTitle>
+                <CardDescription>
+                Estado de conexión con base de datos y automatizaciones
+                </CardDescription>
+              </CardHeader>
+            <CardContent className="space-y-4">
+                            {/* Estado de conexión de Supabase */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {getSupabaseConnectionStatusIcon()}
+                  <div>
+                    <h4 className="font-medium">Conexión Base de Datos (Supabase)</h4>
+                    <p className="text-sm text-gray-600">
+                      Estado: {getSupabaseConnectionStatusText()}
+                    </p>
+                    {lastSupabaseCheck && (
+                      <p className="text-xs text-gray-500">
+                        Última verificación: {lastSupabaseCheck.toLocaleTimeString()}
+                      </p>
+                    )}
+                    <p className="text-xs text-blue-600">
+                      🔄 Monitoreo automático cada 2 minutos
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                    <Button 
+                    onClick={() => testSupabaseConnection(true)}
+                    disabled={supabaseConnectionStatus === 'testing'}
+                      size="sm"
+                    variant="outline"
+                    >
+                    Probar Ahora
+                    </Button>
+                  <div className="text-xs text-center text-gray-500">
+                    {supabaseCheckInterval ? '🟢 Monitoreo activo' : '🔴 Monitoreo inactivo'}
+                  </div>
+                </div>
+                </div>
+
+              {/* Estado de conexión de n8n */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-3">
+                  {getConnectionStatusIcon()}
+                  <div>
+                    <h4 className="font-medium">Conexión Automatizaciones (n8n)</h4>
+                    <p className="text-sm text-gray-600">
+                      Estado: {getConnectionStatusText()}
+                    </p>
+                    {lastN8nCheck && (
+                      <p className="text-xs text-gray-500">
+                        Última verificación: {lastN8nCheck.toLocaleTimeString()}
+                      </p>
+                    )}
+                    <p className="text-xs text-blue-600">
+                      🔄 Monitoreo automático cada 2 minutos
+                    </p>
+                      </div>
+                      </div>
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    onClick={() => testN8nConnection(true)}
+                    disabled={connectionStatus === 'testing'}
+                    size="sm"
+                    variant="outline"
+                  >
+                    Probar Ahora
+                  </Button>
+                  <div className="text-xs text-center text-gray-500">
+                    {n8nCheckInterval ? '🟢 Monitoreo activo' : '🔴 Monitoreo inactivo'}
+                      </div>
+                      </div>
+                    </div>
+
+              {/* Estado de sincronización en tiempo real */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                  {config.features.realTimeSync ? (
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <XCircle className="h-5 w-5 text-red-500" />
+                  )}
+                        <div>
+                    <h4 className="font-medium">Sincronización en Tiempo Real</h4>
+                    <p className="text-sm text-gray-600">
+                      {config.features.realTimeSync ? 'Activa' : 'Inactiva'}
+                          </p>
+                        </div>
+                      </div>
+                <Badge variant={config.features.realTimeSync ? "default" : "secondary"}>
+                  {config.features.realTimeSync ? 'ON' : 'OFF'}
+                </Badge>
+                        </div>
+
+              {/* Mensaje informativo */}
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>Información:</strong> Si hay problemas de conexión, contacta al administrador del sistema. 
+                  La configuración avanzada se encuentra en la sección <strong>Desarrollador</strong>.
+                    </p>
+                </div>
+              </CardContent>
+            </Card>
+        </TabsContent>
+
+        <TabsContent value="multi-tenant">
+          <DeveloperConfigGuard>
+            <MultiTenantManager />
+          </DeveloperConfigGuard>
+        </TabsContent>
+
+        <TabsContent value="developer">
+          <DeveloperConfigGuard>
+          <div className="space-y-6">
+              {/* Configuración básica de n8n */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Zap className="h-5 w-5" />
+                    Integración n8n
+                </CardTitle>
+                <CardDescription>
+                    Configuración básica de automatizaciones con n8n
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="n8nUrl">URL de n8n</Label>
+                  <Input
+                      id="n8nUrl"
+                      placeholder="https://tu-workspace.n8n.cloud"
+                      value={n8nConfig.baseUrl}
+                      onChange={(e) => setN8nConfig({ ...n8nConfig, baseUrl: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                    <Label htmlFor="n8nApiKey">API Key</Label>
+                    <Input
+                      id="n8nApiKey"
+                      type="password"
+                      placeholder="Tu API key de n8n"
+                      value={n8nConfig.apiKey}
+                      onChange={(e) => setN8nConfig({ ...n8nConfig, apiKey: e.target.value })}
+                  />
+                </div>
+
+                  
+
+                {connectionResult && (
+                <Alert>
+                  <AlertDescription>
+                      <pre className="text-xs overflow-auto">
+                        {JSON.stringify(connectionResult, null, 2)}
+                      </pre>
+                  </AlertDescription>
+                </Alert>
+                )}
+
+                <Button 
+                  onClick={handleN8nConfigUpdate}
+                  className="w-full"
+                >
+                  Guardar Configuración n8n
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Configuración de Supabase */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Configuración Supabase
+                </CardTitle>
+                <CardDescription>
+                  Configuración avanzada de la base de datos Supabase
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="supabaseUrl">URL de Supabase</Label>
+                  <Input
+                    id="supabaseUrl"
+                    placeholder="https://tu-proyecto.supabase.co"
+                    value={config.api.supabase.url}
+                    onChange={(e) => handleConfigUpdate({
+                      api: {
+                        ...config.api,
+                        supabase: { ...config.api.supabase, url: e.target.value }
+                      }
+                    })}
+                  />
+                        </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="supabaseKey">Clave Anónima</Label>
+                  <Input
+                    id="supabaseKey"
+                    type="password"
+                    placeholder="Tu clave anónima de Supabase"
+                    value={config.api.supabase.anonKey}
+                    onChange={(e) => handleConfigUpdate({
+                      api: {
+                        ...config.api,
+                        supabase: { ...config.api.supabase, anonKey: e.target.value }
+                      }
+                    })}
+                  />
+                      </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {getSupabaseConnectionStatusIcon()}
+                    <span className="text-sm">
+                      Estado: {getSupabaseConnectionStatusText()}
+                    </span>
+                        </div>
+                          <Button 
+                    onClick={() => testSupabaseConnection(true)}
+                    disabled={supabaseConnectionStatus === 'testing'}
+                    size="sm"
+                  >
+                    Probar Conexión
+                          </Button>
+                </div>
+                
+                {supabaseConnectionResult && (
+                  <Alert>
+                    <AlertDescription>
+                      <pre className="text-xs overflow-auto">
+                        {JSON.stringify(supabaseConnectionResult, null, 2)}
+                      </pre>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                  <Button 
+                  onClick={() => {
+                    toast({
+                      title: "Configuración guardada",
+                      description: "La configuración de Supabase se ha guardado correctamente.",
+                    });
+                  }}
+                    className="w-full"
+                  >
+                  Guardar Configuración Supabase
+                  </Button>
+              </CardContent>
+            </Card>
+
+            {/* Configuración de Sincronización en Tiempo Real */}
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Sincronización en Tiempo Real
+                </CardTitle>
+              <CardDescription>
+                  Configuración de sincronización automática de datos
+              </CardDescription>
+            </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <Label htmlFor="realtime-sync">Habilitar Sincronización en Tiempo Real</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Permite que los cambios se sincronicen automáticamente entre usuarios
+                    </p>
+                </div>
+                  <Switch
+                    id="realtime-sync"
+                    checked={config.features.realTimeSync}
+                    onCheckedChange={(checked) => handleConfigUpdate({
+                      features: { ...config.features, realTimeSync: checked }
+                    })}
+                  />
+                </div>
+
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-700">
+                    <strong>Nota:</strong> La sincronización en tiempo real requiere una conexión estable con Supabase. 
+                    Si está deshabilitada, los cambios solo se sincronizarán al recargar la página.
+                  </p>
+                </div>
+
+                            <Button
+                  onClick={() => {
+                    toast({
+                      title: "Configuración guardada",
+                      description: "La configuración de sincronización se ha guardado correctamente.",
+                    });
+                  }}
+                  className="w-full"
+                >
+                  Guardar Configuración de Sincronización
+                            </Button>
+            </CardContent>
+          </Card>
+
+            {/* Configuración General del Sistema */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Configuración General del Sistema
+              </CardTitle>
+              <CardDescription>
+                  Configuración básica de la aplicación
+              </CardDescription>
+            </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="appName">Nombre de la Aplicación</Label>
@@ -350,7 +1043,7 @@ const Configuracion: React.FC = () => {
                     <option value="production">Producción</option>
                   </select>
                 </div>
-
+                
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="debug"
@@ -361,24 +1054,24 @@ const Configuracion: React.FC = () => {
                   />
                   <Label htmlFor="debug">Modo Debug</Label>
                 </div>
-              </CardContent>
-            </Card>
+            </CardContent>
+          </Card>
 
             {/* Configuración de Seguridad */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Seguridad
-                </CardTitle>
-                <CardDescription>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                  Configuración de Seguridad
+                  </CardTitle>
+                  <CardDescription>
                   Configuración de seguridad y autenticación
-                </CardDescription>
-              </CardHeader>
+                  </CardDescription>
+                </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
+                          <div className="space-y-2">
                   <Label>Tiempo de Sesión (minutos)</Label>
-                  <Input
+                            <Input
                     type="number"
                     value={config.security.sessionTimeout / 60000}
                     onChange={(e) => handleConfigUpdate({
@@ -387,12 +1080,12 @@ const Configuracion: React.FC = () => {
                         sessionTimeout: parseInt(e.target.value) * 60000
                       }
                     })}
-                  />
-                </div>
+                            />
+                          </div>
 
-                <div className="space-y-2">
+                          <div className="space-y-2">
                   <Label>Intentos Máximos de Login</Label>
-                  <Input
+                            <Input
                     type="number"
                     value={config.security.maxLoginAttempts}
                     onChange={(e) => handleConfigUpdate({
@@ -401,8 +1094,8 @@ const Configuracion: React.FC = () => {
                         maxLoginAttempts: parseInt(e.target.value)
                       }
                     })}
-                  />
-                </div>
+                            />
+                          </div>
 
                 <div className="flex items-center space-x-2">
                   <Switch
@@ -412,207 +1105,74 @@ const Configuracion: React.FC = () => {
                     })}
                   />
                   <Label>Requerir Autenticación de Dos Factores</Label>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                          </div>
+            </CardContent>
+          </Card>
 
-          {/* Características */}
+            {/* Características del Sistema */}
           <Card>
             <CardHeader>
-              <CardTitle>Características del Sistema</CardTitle>
+                <CardTitle>Características del Sistema</CardTitle>
               <CardDescription>
-                Activa o desactiva funcionalidades específicas
+                  Activa o desactiva funcionalidades específicas
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                {Object.entries(config.features).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between">
-                    <Label className="capitalize">
-                      {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                    </Label>
-                    <Switch
-                      checked={value}
-                      onCheckedChange={(checked) => handleConfigUpdate({
-                        features: { ...config.features, [key]: checked }
-                      })}
-                    />
+                <div className="grid gap-4 md:grid-cols-2">
+                  {Object.entries(config.features).map(([key, value]) => (
+                    <div key={key} className="flex items-center justify-between">
+                      <Label className="capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                      </Label>
+                      <Switch
+                        checked={value}
+                        onCheckedChange={(checked) => handleConfigUpdate({
+                          features: { ...config.features, [key]: checked }
+                        })}
+                      />
+                          </div>
+                  ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </CardContent>
+              </Card>
 
-        <TabsContent value="n8n">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* Configuración básica de n8n */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="h-5 w-5" />
-                  Integración n8n
-                </CardTitle>
-                <CardDescription>
-                  Configuración básica de automatizaciones con n8n
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="n8nUrl">URL de n8n</Label>
-                  <Input
-                    id="n8nUrl"
-                    placeholder="https://tu-workspace.n8n.cloud"
-                    value={n8nConfig.baseUrl}
-                    onChange={(e) => setN8nConfig({ ...n8nConfig, baseUrl: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="n8nApiKey">API Key</Label>
-                  <Input
-                    id="n8nApiKey"
-                    type="password"
-                    placeholder="Tu API key de n8n"
-                    value={n8nConfig.apiKey}
-                    onChange={(e) => setN8nConfig({ ...n8nConfig, apiKey: e.target.value })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {getConnectionStatusIcon()}
-                    <span className="text-sm">
-                      Estado: {getConnectionStatusText()}
-                    </span>
-                  </div>
-                  <Button
-                    onClick={testN8nConnection}
-                    disabled={connectionStatus === 'testing'}
-                    size="sm"
-                  >
-                    Probar Conexión
-                  </Button>
-                </div>
-
-                {connectionResult && (
-                  <Alert>
-                    <AlertDescription>
-                      <pre className="text-xs overflow-auto">
-                        {JSON.stringify(connectionResult, null, 2)}
-                      </pre>
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                <Button onClick={handleN8nConfigUpdate} className="w-full">
-                  Guardar Configuración
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Métricas de Webhooks */}
-            {webhookMetrics && (
+              {/* Métricas de Webhooks */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Métricas de Webhooks</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Webhook className="h-5 w-5" />
+                    Métricas de Webhooks
+                  </CardTitle>
                   <CardDescription>
                     Estadísticas de conectividad con n8n
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">{webhookMetrics.totalRequests}</div>
-                      <div className="text-sm text-muted-foreground">Total de Requests</div>
+                  {webhookMetrics ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">{webhookMetrics.totalRequests}</div>
+                        <div className="text-sm text-muted-foreground">Total de Requests</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">
-                        {webhookMetrics.successfulRequests}
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{webhookMetrics.successfulRequests}</div>
+                        <div className="text-sm text-muted-foreground">Exitosos</div>
+                    </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">{webhookMetrics.failedRequests}</div>
+                        <div className="text-sm text-muted-foreground">Fallidos</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">Exitosos</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-red-600">
-                        {webhookMetrics.failedRequests}
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">{webhookMetrics.averageResponseTime}ms</div>
+                        <div className="text-sm text-muted-foreground">Tiempo Promedio</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">Fallidos</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">
-                        {webhookMetrics.averageResponseTime.toFixed(0)}ms
-                      </div>
-                      <div className="text-sm text-muted-foreground">Tiempo Promedio</div>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="text-muted-foreground">No hay métricas disponibles</p>
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </div>
-        </TabsContent>
 
-        <TabsContent value="database">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5" />
-                Base de Datos
-              </CardTitle>
-              <CardDescription>
-                Configuración de Supabase
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>URL de Supabase</Label>
-                <Input
-                  value={config.api.supabase.url}
-                  onChange={(e) => handleConfigUpdate({
-                    api: {
-                      ...config.api,
-                      supabase: { ...config.api.supabase, url: e.target.value }
-                    }
-                  })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Clave Anónima</Label>
-                <Input
-                  type="password"
-                  value={config.api.supabase.anonKey}
-                  onChange={(e) => handleConfigUpdate({
-                    api: {
-                      ...config.api,
-                      supabase: { ...config.api.supabase, anonKey: e.target.value }
-                    }
-                  })}
-                />
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={config.features.realTimeSync}
-                  onCheckedChange={(checked) => handleConfigUpdate({
-                    features: { ...config.features, realTimeSync: checked }
-                  })}
-                />
-                <Label>Sincronización en Tiempo Real</Label>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="multi-tenant">
-          <DeveloperConfigGuard>
-            <MultiTenantManager />
-          </DeveloperConfigGuard>
-        </TabsContent>
-
-        <TabsContent value="developer">
-          <DeveloperConfigGuard>
-            <div className="space-y-6">
               {/* Configuración Avanzada de Webhooks n8n */}
               <Card>
                 <CardHeader>
@@ -625,61 +1185,7 @@ const Configuracion: React.FC = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Configuración base */}
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="webhook_base_url">URL Base de n8n *</Label>
-                      <Input
-                        id="webhook_base_url"
-                        value={webhookConfig.baseUrl}
-                        onChange={(e) => setWebhookConfig({...webhookConfig, baseUrl: e.target.value})}
-                        placeholder="https://tu-instancia.n8n.cloud"
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        URL completa de tu instancia de n8n
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="webhook_api_key">API Key de n8n (Opcional)</Label>
-                      <Input
-                        id="webhook_api_key"
-                        type="password"
-                        value={webhookConfig.apiKey}
-                        onChange={(e) => setWebhookConfig({...webhookConfig, apiKey: e.target.value})}
-                        placeholder="••••••••••••••••••••••••••••••••"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Para autenticación adicional en webhooks (opcional)
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="webhook_timeout">Timeout (ms)</Label>
-                        <Input
-                          id="webhook_timeout"
-                          type="number"
-                          value={webhookConfig.timeout}
-                          onChange={(e) => setWebhookConfig({...webhookConfig, timeout: parseInt(e.target.value) || 30000})}
-                          min="5000"
-                          max="120000"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="webhook_retries">Reintentos</Label>
-                        <Input
-                          id="webhook_retries"
-                          type="number"
-                          value={webhookConfig.retryAttempts}
-                          onChange={(e) => setWebhookConfig({...webhookConfig, retryAttempts: parseInt(e.target.value) || 3})}
-                          min="0"
-                          max="10"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  {/* Configuración de Endpoints */}
 
                   {/* Configuración de Endpoints */}
                   <div className="space-y-4">
@@ -724,20 +1230,20 @@ const Configuracion: React.FC = () => {
                             />
                           </div>
                           <div className="flex gap-1">
-                                                         <Button
-                               size="sm"
-                               variant="outline"
+                            <Button
+                              size="sm"
+                              variant="outline"
                                onClick={() => copyWebhookUrl(endpoint as string)}
-                             >
-                               <Copy className="h-4 w-4" />
-                             </Button>
-                             <Button
-                               size="sm"
-                               variant="outline"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                                onClick={() => handleTestWebhook(endpoint as string)}
-                             >
-                               <Code className="h-4 w-4" />
-                             </Button>
+                            >
+                              <Code className="h-4 w-4" />
+                            </Button>
                           </div>
                         </div>
                       ))}
