@@ -1,5 +1,0 @@
-[33m6daff69[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: implementación completa con guía y documentación finalizada
-[33m6f65272[m feat: limpieza y optimización completa del proyecto
-[33m0c2f26a[m[33m ([m[1;33mtag: [m[1;33mrollback-v1.0-stable[m[33m)[m feat: implementar separación completa entre local y demo - Local: src/ con Supabase real - Demo: demo/ con Supabase mock - Separación total de entornos
-[33m13d5d52[m feat: crear cliente Supabase específico para demo con mock completo
-[33m8ea1bf7[m fix: corregir campos de tabla empresas, error de scope en supabase client y warning de DOM nesting

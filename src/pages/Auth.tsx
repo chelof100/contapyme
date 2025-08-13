@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,11 +7,47 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/sonner';
+import { AlertTriangle, Key } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingEmpresa, setCheckingEmpresa] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('login');
+
+  // Detectar query parameter para abrir tab de registro
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'register') {
+      setActiveTab('register');
+    }
+  }, [searchParams]);
+
+  // Verificar si existe empresa antes de permitir registro
+  const checkEmpresaExists = async () => {
+    setCheckingEmpresa(true);
+    try {
+      const { data, error } = await supabase
+        .from('empresa')
+        .select('id, nombre')
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking empresa:', error);
+        return false;
+      }
+
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Error checking empresa:', error);
+      return false;
+    } finally {
+      setCheckingEmpresa(false);
+    }
+  };
 
   // Login form state
   const [loginData, setLoginData] = useState({
@@ -79,6 +115,14 @@ const Auth = () => {
     setIsLoading(true);
 
     try {
+      // Verificar si existe empresa antes de permitir registro
+      const empresaExists = await checkEmpresaExists();
+      if (!empresaExists) {
+        toast.error("No hay empresa configurada en el sistema. Contacta al administrador para configurar una empresa antes de crear usuarios.");
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await signUp(
         registerData.email, 
         registerData.password,
@@ -110,13 +154,13 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">ContaPYME</CardTitle>
+          <CardTitle className="text-2xl font-bold text-primary">OnePYME</CardTitle>
           <CardDescription>
-            Sistema de gestión contable para PYMES
+            Sistema integral de gestión empresarial para PYMES
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login" data-value="login">Iniciar Sesión</TabsTrigger>
               <TabsTrigger value="register">Registrarse</TabsTrigger>
@@ -154,15 +198,28 @@ const Auth = () => {
                   {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                 </Button>
               </form>
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium mb-2">
-                  <strong>Credenciales de Prueba:</strong>
-                </p>
-                <div className="text-xs text-blue-700 space-y-1">
-                  <p><strong>Email:</strong> admin@contapyme.com</p>
-                  <p><strong>Contraseña:</strong> admin123</p>
-                  <p><strong>Rol:</strong> Administrador (acceso completo)</p>
+              
+              {/* Enlace para reset de password */}
+              <div className="mt-4 text-center">
+                <a 
+                  href="/admin-reset-password"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  <Key className="h-4 w-4" />
+                  Resetear Password de Admin
+                </a>
+              </div>
+              
+              <div className="mt-4 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <p className="text-sm text-amber-800 font-medium">
+                    <strong>Acceso de Desarrollador</strong>
+                  </p>
                 </div>
+                <p className="text-xs text-amber-700">
+                  Usa las credenciales de desarrollador para acceso completo al sistema.
+                </p>
               </div>
             </TabsContent>
             
@@ -238,9 +295,9 @@ const Auth = () => {
                 <Button 
                   type="submit" 
                   className="w-full" 
-                  disabled={isLoading}
+                  disabled={isLoading || checkingEmpresa}
                 >
-                  {isLoading ? 'Creando cuenta...' : 'Crear Cuenta'}
+                  {isLoading ? 'Creando cuenta...' : checkingEmpresa ? 'Verificando empresa...' : 'Crear Cuenta'}
                 </Button>
               </form>
             </TabsContent>

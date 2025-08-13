@@ -13,9 +13,11 @@ import { useToast } from '@/hooks/use-toast';
 import { configManager } from '@/config/app';
 import { n8nService } from '@/services/n8nService';
 import { webhookService } from '@/services/webhookService';
+import { useEmpresa } from '@/hooks/useSupabaseData';
+import { useAuth } from '@/contexts/AuthContext';
 import { CheckCircle, XCircle, AlertTriangle, Settings, Zap, Database, Shield, Webhook, Copy, Code, Download, Upload, Save } from 'lucide-react';
 import DeveloperConfigGuard from '@/components/DeveloperConfigGuard';
-import MultiTenantManager from '@/components/MultiTenantManager';
+
 
 const Configuracion: React.FC = () => {
   const { toast } = useToast();
@@ -34,9 +36,14 @@ const Configuracion: React.FC = () => {
   const [lastSupabaseCheck, setLastSupabaseCheck] = useState<Date | null>(null);
   const [supabaseCheckInterval, setSupabaseCheckInterval] = useState<NodeJS.Timeout | null>(null);
   
+  // Estados para datos de empresa
+  const { data: empresaData, loading: empresaLoading, error: empresaError, update: updateEmpresa, createOrUpdate: createOrUpdateEmpresa } = useEmpresa();
+  const { profile } = useAuth();
+  const [localEmpresaData, setLocalEmpresaData] = useState<any>(null);
+  
   // Estados para configuraciones de usuario
   const [userConfig, setUserConfig] = useState(() => {
-    const saved = localStorage.getItem('contapyme_user_config');
+    const saved = localStorage.getItem('onepyme_user_config');
     return saved ? JSON.parse(saved) : {
       theme: 'system',
       language: 'es',
@@ -93,6 +100,42 @@ const Configuracion: React.FC = () => {
       apiKey: config.api.n8n.apiKey || ''
     };
   });
+
+  // Sincronizar datos locales de empresa
+  useEffect(() => {
+    if (empresaData) {
+      setLocalEmpresaData(empresaData);
+    }
+  }, [empresaData]);
+
+  // Función para guardar datos de empresa
+  const handleSaveEmpresa = async () => {
+    if (!localEmpresaData) return;
+    
+    try {
+      // Si usuario no tiene empresa_id o tiene el ID por defecto, usar createOrUpdateEmpresa
+      if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
+        console.log('🔍 [Configuracion] Usuario sin empresa_id válido, creando/asignando empresa...');
+        await createOrUpdateEmpresa(localEmpresaData);
+      } else {
+        // Si ya tiene empresa_id válido, usar updateEmpresa normal
+        console.log('🔍 [Configuracion] Usuario con empresa_id válido, actualizando empresa...');
+        await updateEmpresa(localEmpresaData);
+      }
+      
+      toast({
+        title: "Éxito",
+        description: "Datos de la empresa configurados correctamente",
+      });
+    } catch (error) {
+      console.error('❌ [Configuracion] Error al guardar empresa:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron configurar los datos de la empresa",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     // Cargar métricas de webhooks
@@ -339,7 +382,7 @@ const Configuracion: React.FC = () => {
   const updateUserConfig = (updates: any) => {
     const newConfig = { ...userConfig, ...updates };
     setUserConfig(newConfig);
-    localStorage.setItem('contapyme_user_config', JSON.stringify(newConfig));
+          localStorage.setItem('onepyme_user_config', JSON.stringify(newConfig));
     
     // Aplicar cambios inmediatamente
     if (updates.theme) {
@@ -530,10 +573,10 @@ const Configuracion: React.FC = () => {
             </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="database">Base de Datos</TabsTrigger>
-          <TabsTrigger value="multi-tenant">Multi-Tenant</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="empresa">Empresa</TabsTrigger>
+            <TabsTrigger value="database">Base de Datos</TabsTrigger>
           <TabsTrigger value="developer">Desarrollador</TabsTrigger>
         </TabsList>
 
@@ -697,7 +740,151 @@ const Configuracion: React.FC = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="empresa">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Información de la Empresa */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Información de la Empresa
+                </CardTitle>
+                <CardDescription>
+                  Datos de la empresa cliente
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-nombre">Nombre de la Empresa</Label>
+                  <Input
+                    id="empresa-nombre"
+                    placeholder="Nombre de la empresa"
+                    value={localEmpresaData?.nombre || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, nombre: e.target.value }))}
+                  />
+                </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-razon-social">Razón Social</Label>
+                  <Input
+                    id="empresa-razon-social"
+                    placeholder="Razón social"
+                    value={localEmpresaData?.razon_social || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, razon_social: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-cuit">CUIT</Label>
+                  <Input
+                    id="empresa-cuit"
+                    placeholder="XX-XXXXXXXX-X"
+                    value={localEmpresaData?.cuit || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, cuit: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-email">Email</Label>
+                  <Input
+                    id="empresa-email"
+                    type="email"
+                    placeholder="email@empresa.com"
+                    value={localEmpresaData?.email || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-telefono">Teléfono</Label>
+                  <Input
+                    id="empresa-telefono"
+                    placeholder="+54 11 1234-5678"
+                    value={localEmpresaData?.telefono || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, telefono: e.target.value }))}
+                  />
+                </div>
+
+                <Button 
+                  onClick={handleSaveEmpresa}
+                  disabled={empresaLoading}
+                  className="w-full"
+                >
+                  {empresaLoading ? 'Guardando...' : 'Guardar Cambios'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Dirección y Ubicación */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Dirección y Ubicación
+                </CardTitle>
+                <CardDescription>
+                  Información de ubicación de la empresa
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-direccion">Dirección</Label>
+                  <Input
+                    id="empresa-direccion"
+                    placeholder="Calle y número"
+                    value={localEmpresaData?.direccion || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, direccion: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-ciudad">Ciudad</Label>
+                  <Input
+                    id="empresa-ciudad"
+                    placeholder="Ciudad"
+                    value={localEmpresaData?.ciudad || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, ciudad: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-provincia">Provincia</Label>
+                  <Input
+                    id="empresa-provincia"
+                    placeholder="Provincia"
+                    value={localEmpresaData?.provincia || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, provincia: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-codigo-postal">Código Postal</Label>
+                  <Input
+                    id="empresa-codigo-postal"
+                    placeholder="Código postal"
+                    value={localEmpresaData?.codigo_postal || ''}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, codigo_postal: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="empresa-condicion-iva">Condición IVA</Label>
+                  <select
+                    id="empresa-condicion-iva"
+                    className="w-full p-2 border rounded-md"
+                    value={localEmpresaData?.condicion_iva || 'Responsable Inscripto'}
+                    onChange={(e) => setLocalEmpresaData(prev => ({ ...prev, condicion_iva: e.target.value }))}
+                  >
+                    <option value="Responsable Inscripto">Responsable Inscripto</option>
+                    <option value="Monotributista">Monotributista</option>
+                    <option value="Exento">Exento</option>
+                    <option value="Consumidor Final">Consumidor Final</option>
+                  </select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="database">
             <Card>
@@ -810,15 +997,91 @@ const Configuracion: React.FC = () => {
             </Card>
         </TabsContent>
 
-        <TabsContent value="multi-tenant">
-          <DeveloperConfigGuard>
-            <MultiTenantManager />
-          </DeveloperConfigGuard>
-        </TabsContent>
+
 
         <TabsContent value="developer">
           <DeveloperConfigGuard>
           <div className="space-y-6">
+              {/* Configuración del Usuario Admin del Sistema */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Configuración del Usuario Admin
+                </CardTitle>
+                <CardDescription>
+                    Configuración del usuario administrador del sistema (salvavidas)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-800">Usuario de Emergencia</span>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    Este usuario actúa como salvavidas en caso de problemas con el usuario developer.
+                    Solo puede ser configurado desde esta sección protegida.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="adminEmail">Email del Admin</Label>
+                    <Input
+                      id="adminEmail"
+                      type="email"
+                              placeholder="admin@onepyme.pro"
+        value="admin@onepyme.pro"
+                      disabled
+                      className="bg-gray-50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Usuario admin del sistema (creado en base de datos)
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="adminPassword">Contraseña del Admin</Label>
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value="••••••••"
+                      disabled
+                      className="bg-gray-50"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Contraseña configurada en Supabase
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium">Estado del Usuario Admin</span>
+                  </div>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    Activo - Salvavidas
+                  </Badge>
+                </div>
+
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Shield className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Información de Seguridad</span>
+                  </div>
+                  <p className="text-xs text-blue-700">
+                    • Este usuario actúa como salvavidas del sistema<br/>
+                    • Creado en base de datos Supabase<br/>
+                    • Contraseña configurable desde Supabase Dashboard<br/>
+                    • Acceso protegido a solapa Desarrollador
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
               {/* Configuración básica de n8n */}
             <Card>
               <CardHeader>
@@ -1292,7 +1555,7 @@ const Configuracion: React.FC = () => {
   "metadata": {
     "requestId": "uuid",
     "timestamp": "ISO string",
-    "source": "ContaPYME-Frontend",
+            "source": "OnePYME-Frontend",
     "version": "1.0.0"
   }
 }`}

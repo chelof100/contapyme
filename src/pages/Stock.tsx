@@ -212,8 +212,17 @@ const Stock = () => {
         ? producto.stock_actual + movimiento.cantidad
         : producto.stock_actual - movimiento.cantidad;
 
+      console.log('🔍 [Stock] Debugging movimiento:', {
+        producto_id: producto.id,
+        sku: movimiento.sku,
+        stock_actual: producto.stock_actual,
+        cantidad: movimiento.cantidad,
+        nuevoStock,
+        tipo: movimiento.tipo
+      });
+
       // Crear movimiento en Supabase
-      await createMovimiento({
+      const movimientoCreado = await createMovimiento({
         producto_id: producto.id,
         sku: movimiento.sku,
         tipo_movimiento: movimiento.tipo,
@@ -226,10 +235,25 @@ const Stock = () => {
         usuario_id: user?.id
       });
 
-      // Actualizar stock del producto
-      await updateProducto(producto.id, { stock_actual: nuevoStock });
+      if (!movimientoCreado) {
+        throw new Error('No se pudo crear el movimiento');
+      }
 
-      toast.success(`Movimiento de ${movimiento.tipo} registrado exitosamente`);
+      // Actualizar stock del producto
+      const productoActualizado = await updateProducto(producto.id, { 
+        stock_actual: nuevoStock 
+      });
+
+      if (!productoActualizado) {
+        throw new Error('No se pudo actualizar el stock del producto');
+      }
+
+      console.log('✅ [Stock] Movimiento completado:', {
+        movimiento_id: movimientoCreado.id,
+        producto_actualizado: productoActualizado.stock_actual
+      });
+
+      toast.success(`Movimiento de ${movimiento.tipo} registrado exitosamente. Stock actualizado a ${nuevoStock}`);
 
       // Limpiar formulario
       setMovimiento({
@@ -245,8 +269,8 @@ const Stock = () => {
       });
 
     } catch (error) {
-      console.error('Error al registrar movimiento:', error);
-      toast.error('Error al registrar movimiento');
+      console.error('❌ [Stock] Error al registrar movimiento:', error);
+      toast.error(`Error al registrar movimiento: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setLoading(false);
     }
@@ -461,7 +485,10 @@ const Stock = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setActiveTab('productos')}
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Stock Total</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -470,7 +497,10 @@ const Stock = () => {
             <div className="text-2xl font-bold">
               {loadingProductos ? '...' : productos.reduce((total, p) => total + p.stock_actual, 0)}
             </div>
-            <p className="text-xs text-muted-foreground">unidades en stock</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">unidades en stock</p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
           </CardContent>
         </Card>
 
@@ -848,7 +878,7 @@ const Stock = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {productos.map((producto) => (
-                          <SelectItem key={producto.id} value={producto.codigo}>
+                          <SelectItem key={producto.id} value={producto.sku}>
                             {producto.codigo} - {producto.nombre}
                           </SelectItem>
                         ))}

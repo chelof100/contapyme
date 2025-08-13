@@ -1,7 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { supabaseAdmin } from '@/integrations/supabase/admin';
 import { toast } from 'sonner';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Users, 
+  Shield, 
+  UserPlus, 
+  X,
+  Key
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -10,16 +35,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Users, Shield, Eye, Edit } from 'lucide-react';
 
 interface User {
   id: string;
@@ -27,7 +42,7 @@ interface User {
   username: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'contador' | 'usuario';
+  role: 'admin' | 'contador' | 'usuario' | 'developer';
   empresa_id: string;
   created_at: string;
   last_login?: string;
@@ -35,9 +50,32 @@ interface User {
 
 const UsuariosAdmin = () => {
   const { isAdmin, user } = useAuth();
+  
+
+  
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [selectedUserForReset, setSelectedUserForReset] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [newUser, setNewUser] = useState<{
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role: 'admin' | 'contador' | 'usuario' | 'developer';
+  }>({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    role: 'usuario' as 'admin' | 'contador' | 'usuario' | 'developer',
+  });
 
   // Verificar permisos
   if (!isAdmin()) {
@@ -70,10 +108,58 @@ const UsuariosAdmin = () => {
     }
   };
 
+  // Reset password de usuario
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedUserForReset) return;
+    
+    if (newPassword !== confirmPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    setResettingPassword(true);
+    
+    try {
+      // Debug: Verificar datos del usuario
+      console.log('🔍 Usuario a resetear:', selectedUserForReset);
+      console.log('🔑 Service Role Key configurado:', !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY);
+      
+      // Usar cliente admin para reset password directo
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(
+        selectedUserForReset.id,
+        { password: newPassword }
+      );
+
+      if (error) {
+        console.error('❌ Error en reset:', error);
+        toast.error('Error al resetear password: ' + error.message);
+      } else {
+        console.log('✅ Password reseteado exitosamente');
+        toast.success('Password reseteado exitosamente!');
+        setShowResetPassword(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        setSelectedUserForReset(null);
+      }
+    } catch (error) {
+      console.error('💥 Error inesperado:', error);
+      toast.error('Error inesperado: ' + (error as Error).message);
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   // Actualizar rol de usuario
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'contador' | 'usuario') => {
-    if (userId === user?.id && newRole !== 'admin') {
-      toast.error('No puedes cambiar tu propio rol de administrador');
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'contador' | 'usuario' | 'developer') => {
+    if (userId === user?.id && newRole !== 'admin' && newRole !== 'developer') {
+      toast.error('No puedes cambiar tu propio rol de administrador o desarrollador');
       return;
     }
 
@@ -99,9 +185,41 @@ const UsuariosAdmin = () => {
     }
   };
 
+  // Crear nuevo usuario
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: newUser.email,
+        password: newUser.password,
+        options: {
+          data: {
+            first_name: newUser.firstName,
+            last_name: newUser.lastName,
+            role: newUser.role,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success('Usuario creado exitosamente!');
+      setShowCreateUser(false);
+      setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'usuario' as 'admin' | 'contador' | 'usuario' | 'developer' });
+      fetchUsers(); // Refresh users after creation
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast.error('Error al crear usuario');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   // Obtener badge de rol
   const getRoleBadge = (role: string) => {
     const styles = {
+      developer: 'bg-purple-100 text-purple-800',
       admin: 'bg-red-100 text-red-800',
       contador: 'bg-blue-100 text-blue-800',
       usuario: 'bg-gray-100 text-gray-800'
@@ -112,6 +230,7 @@ const UsuariosAdmin = () => {
   // Obtener permisos del rol
   const getRolePermissions = (role: string) => {
     const permissions = {
+      developer: ['Super Administrador', 'Configuración del sistema', 'Gestión completa', 'Acceso a base de datos', 'Gestión de API', 'Configuración avanzada'],
       admin: ['Gestión completa', 'Configuración del sistema', 'Gestión de usuarios'],
       contador: ['Ver todos los datos', 'Editar facturas', 'Reportes contables'],
       usuario: ['Ver sus propios datos', 'Crear facturas básicas']
@@ -142,9 +261,18 @@ const UsuariosAdmin = () => {
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
           <p className="text-gray-500">Administra roles y permisos de usuarios</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Users className="h-5 w-5 text-gray-400" />
-          <span className="text-sm text-gray-500">{users.length} usuarios</span>
+        <div className="flex items-center space-x-4">
+          <Button 
+            onClick={() => setShowCreateUser(true)}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Crear Usuario
+          </Button>
+          <div className="flex items-center space-x-2">
+            <Users className="h-5 w-5 text-gray-400" />
+            <span className="text-sm text-gray-500">{users.length} usuarios</span>
+          </div>
         </div>
       </div>
 
@@ -155,7 +283,7 @@ const UsuariosAdmin = () => {
             <CardTitle className="text-sm font-medium text-gray-500">Administradores</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.filter(u => u.role === 'admin').length}</div>
+            <div className="text-2xl font-bold">{users.filter(u => u.role === 'admin' || u.role === 'developer').length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -212,7 +340,7 @@ const UsuariosAdmin = () => {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-gray-600">
-                      {getRolePermissions(user.role).slice(0, 2).map((perm, idx) => (
+                      {getRolePermissions(user.role).map((perm, idx) => (
                         <div key={idx}>• {perm}</div>
                       ))}
                     </div>
@@ -223,22 +351,38 @@ const UsuariosAdmin = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={user.role}
-                      onValueChange={(newRole: 'admin' | 'contador' | 'usuario') => 
-                        updateUserRole(user.id, newRole)
-                      }
-                      disabled={updating === user.id}
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usuario">Usuario</SelectItem>
-                        <SelectItem value="contador">Contador</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex space-x-2">
+                      <Select
+                        value={user.role}
+                        onValueChange={(newRole: 'admin' | 'contador' | 'usuario' | 'developer') => 
+                          updateUserRole(user.id, newRole)
+                        }
+                        disabled={updating === user.id}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="usuario">Usuario</SelectItem>
+                          <SelectItem value="contador">Contador</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="developer">Developer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUserForReset(user);
+                          setShowResetPassword(true);
+                        }}
+                        className="flex items-center space-x-1"
+                      >
+                        <Key className="h-4 w-4" />
+                        <span>Reset</span>
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -246,6 +390,188 @@ const UsuariosAdmin = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Modal de Crear Usuario */}
+      {showCreateUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Crear Nuevo Usuario</h2>
+              <button
+                onClick={() => setShowCreateUser(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  required
+                  placeholder="usuario@empresa.com"
+                />
+              </div>
+               
+              <div>
+                <Label htmlFor="password">Contraseña</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  required
+                  placeholder="Contraseña segura"
+                />
+              </div>
+               
+              <div>
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input
+                  id="firstName"
+                  type="text"
+                  value={newUser.firstName}
+                  onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                  placeholder="Nombre del usuario"
+                />
+              </div>
+               
+              <div>
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  type="text"
+                  value={newUser.lastName}
+                  onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                  placeholder="Apellido del usuario"
+                />
+              </div>
+               
+              <div>
+                <Label htmlFor="role">Rol</Label>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(value: 'admin' | 'contador' | 'usuario' | 'developer') => 
+                    setNewUser({...newUser, role: value})
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="usuario">Usuario</SelectItem>
+                    <SelectItem value="contador">Contador</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="developer">Developer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+               
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  type="submit"
+                  disabled={creating}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                >
+                  {creating ? 'Creando...' : 'Crear Usuario'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowCreateUser(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Reset Password */}
+      {showResetPassword && selectedUserForReset && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Resetear Password</h2>
+              <button
+                onClick={() => {
+                  setShowResetPassword(false);
+                  setSelectedUserForReset(null);
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Usuario:</strong> {selectedUserForReset.email}
+              </p>
+            </div>
+            
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <Label htmlFor="newPassword">Nueva Contraseña</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  placeholder="Nueva contraseña"
+                  minLength={8}
+                />
+              </div>
+               
+              <div>
+                <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirmar contraseña"
+                  minLength={8}
+                />
+              </div>
+               
+              <div className="flex space-x-3 pt-4">
+                <Button
+                  type="submit"
+                  disabled={resettingPassword}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {resettingPassword ? 'Reseteando...' : 'Resetear Password'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowResetPassword(false);
+                    setSelectedUserForReset(null);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

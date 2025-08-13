@@ -331,7 +331,7 @@ const Monitoreo = () => {
                   </div>
                   <div>
                     <p><strong>Versión del Sistema:</strong></p>
-                    <p className="text-muted-foreground">ContaPYME v1.0.0</p>
+                    <p className="text-muted-foreground">OnePYME v1.0.0</p>
                   </div>
                   <div>
                     <p><strong>Entorno:</strong></p>

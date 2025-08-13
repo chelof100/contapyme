@@ -30,10 +30,10 @@ export function useSupabaseData<T>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
-    if (!user || !profile?.empresa_id || !enabled) {
+    if (!user || !enabled) {
       setLoading(false);
       return;
     }
@@ -44,10 +44,10 @@ export function useSupabaseData<T>(
       
       let query = supabase.from(table).select(select);
 
-      // Aplicar filtro automático por empresa
-      query = query.eq('empresa_id', profile.empresa_id);
+      // SIMPLE TENANT: No hay filtros automáticos por empresa_id
+      // Una sola empresa por instalación = no hay necesidad de filtrar
 
-      // Aplicar filtros adicionales
+      // Aplicar filtros adicionales si se especifican
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
@@ -83,23 +83,20 @@ export function useSupabaseData<T>(
     } finally {
       setLoading(false);
     }
-  }, [table, select, JSON.stringify(filters), user?.id, profile?.empresa_id, enabled]);
+  }, [table, select, JSON.stringify(filters), user?.id, enabled]);
 
   const create = useCallback(async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T | null> => {
-    if (!user || !profile?.empresa_id) {
+    if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
-      const dataWithEmpresa = {
-        ...data,
-        empresa_id: profile.empresa_id
-      };
-
+      // SIMPLE TENANT: No agregar empresa_id automáticamente
+      // Los datos se insertan tal como vienen
       const { data: result, error: insertError } = await supabase
         .from(table)
-        .insert(dataWithEmpresa)
+        .insert(data)
         .select()
         .single();
 
@@ -116,20 +113,20 @@ export function useSupabaseData<T>(
       console.error(`Error creating ${table}:`, err);
       return null;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   const update = useCallback(async (id: string, data: Partial<T>): Promise<T | null> => {
-    if (!user || !profile?.empresa_id) {
+    if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
+      // SIMPLE TENANT: No verificar empresa_id en updates
       const { data: result, error: updateError } = await supabase
         .from(table)
         .update(data)
         .eq('id', id)
-        .eq('empresa_id', profile.empresa_id)
         .select()
         .single();
 
@@ -148,20 +145,20 @@ export function useSupabaseData<T>(
       console.error(`Error updating ${table}:`, err);
       return null;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   const remove = useCallback(async (id: string): Promise<boolean> => {
-    if (!user || !profile?.empresa_id) {
+    if (!user) {
       toast.error('Usuario no autenticado');
       return false;
     }
 
     try {
+      // SIMPLE TENANT: No verificar empresa_id en deletes
       const { error: deleteError } = await supabase
         .from(table)
         .delete()
-        .eq('id', id)
-        .eq('empresa_id', profile.empresa_id);
+        .eq('id', id);
 
       if (deleteError) throw deleteError;
 
@@ -176,7 +173,7 @@ export function useSupabaseData<T>(
       console.error(`Error deleting ${table}:`, err);
       return false;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   useEffect(() => {
     fetchData();

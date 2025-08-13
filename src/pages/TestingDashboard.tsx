@@ -33,7 +33,7 @@ const TestingDashboard = () => {
   const erpData = useERPDashboard();
   const [testResults, setTestResults] = useState<Record<string, boolean>>(() => {
     // Cargar resultados guardados del localStorage
-    const saved = localStorage.getItem('contapyme_test_results');
+    const saved = localStorage.getItem('onepyme_test_results');
     return saved ? JSON.parse(saved) : {};
   });
   const [isRunningTests, setIsRunningTests] = useState(false);
@@ -91,14 +91,14 @@ const TestingDashboard = () => {
       const newResults = { ...testResults, [testId]: result };
       setTestResults(newResults);
       // Guardar en localStorage
-      localStorage.setItem('contapyme_test_results', JSON.stringify(newResults));
+      localStorage.setItem('onepyme_test_results', JSON.stringify(newResults));
       return result;
     } catch (error) {
       console.error(`Test ${testId} failed:`, error);
       const newResults = { ...testResults, [testId]: false };
       setTestResults(newResults);
       // Guardar en localStorage
-      localStorage.setItem('contapyme_test_results', JSON.stringify(newResults));
+      localStorage.setItem('onepyme_test_results', JSON.stringify(newResults));
       return false;
     }
   };
@@ -117,7 +117,7 @@ const TestingDashboard = () => {
     
     setTestResults(results);
     // Guardar todos los resultados en localStorage
-    localStorage.setItem('contapyme_test_results', JSON.stringify(results));
+    localStorage.setItem('onepyme_test_results', JSON.stringify(results));
     setIsRunningTests(false);
     
     const totalTests = testSuites.reduce((sum, suite) => sum + suite.tests.length, 0);
@@ -373,7 +373,7 @@ const TestingDashboard = () => {
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <strong>🔧 Solución Rápida para Login:</strong>
-              <br />• Email: admin@contapyme.com
+              <br />• Email: admin@onepyme.pro
               <br />• Contraseña: admin123
               <br />• Rol: admin (acceso completo)
               <br /><br />

@@ -1,5 +1,0 @@
-[33m0c2f26a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: implementar separación completa entre local y demo - Local: src/ con Supabase real - Demo: demo/ con Supabase mock - Separación total de entornos
-[33m13d5d52[m feat: crear cliente Supabase específico para demo con mock completo
-[33m8ea1bf7[m fix: corregir campos de tabla empresas, error de scope en supabase client y warning de DOM nesting
-[33mf0d847c[m fix: configuración diferenciada - mock SOLO en GitHub Pages, real en local
-[33m844cd17[m fix: completar mock de Supabase con métodos faltantes (getUser, single, user_actions)

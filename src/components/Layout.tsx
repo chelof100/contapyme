@@ -129,7 +129,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex min-h-0 flex-1 flex-col bg-white shadow-lg">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex flex-shrink-0 items-center px-4">
-              <h1 className="text-xl font-bold text-blue-900">ContaPYME</h1>
+              <h1 className="text-xl font-bold text-blue-900">OnePYME</h1>
             </div>
             <div className="mt-5 flex-1 px-3">
               <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg">
@@ -247,7 +247,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <div className="flex min-h-0 flex-1 flex-col pt-5 pb-4">
               <div className="flex flex-shrink-0 items-center px-4">
-                <h1 className="text-xl font-bold text-blue-900">ContaPYME</h1>
+                <h1 className="text-xl font-bold text-blue-900">OnePYME</h1>
               </div>
               <div className="mt-5 flex-1 px-3">
                 <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg">
@@ -314,7 +314,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Menu className="h-6 w-6" />
             </Button>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-blue-900">ContaPYME</h1>
+              <h1 className="text-lg font-semibold text-blue-900">OnePYME</h1>
               <StatusIndicator
                 status={healthStatus ? 'healthy' : 'unknown'}
                 variant="dot"

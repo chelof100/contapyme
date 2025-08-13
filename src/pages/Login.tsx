@@ -41,9 +41,9 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-blue-900">ContaPYME</CardTitle>
+          <CardTitle className="text-2xl font-bold text-blue-900">OnePYME</CardTitle>
           <CardDescription>
-            Sistema de gestión contable para PYMES
+            Sistema integral de gestión empresarial para PYMES
           </CardDescription>
         </CardHeader>
         <CardContent>

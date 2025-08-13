@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import TestingDashboard from "./pages/TestingDashboard";
 import Monitoreo from "./pages/Monitoreo";
+import AdminResetPassword from "./pages/AdminResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -168,14 +169,15 @@ const App = () => (
                 </Layout>
               </ProtectedRoute>
             } />
-            <Route path="/monitoreo" element={
-              <ProtectedRoute>
-                <Layout>
-                  <Monitoreo />
-                </Layout>
-              </ProtectedRoute>
-            } />
-            <Route path="*" element={<NotFound />} />
+                          <Route path="/monitoreo" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Monitoreo />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin-reset-password" element={<AdminResetPassword />} />
+              <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

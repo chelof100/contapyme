@@ -10,10 +10,10 @@ const Index = () => {
       <div className="container mx-auto px-4 py-16">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-6xl font-bold text-primary mb-4">
-            ContaPYME
+            OnePYME
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Sistema integral de gestión contable diseñado especialmente para pequeñas y medianas empresas
+            Sistema integral de gestión empresarial diseñado especialmente para pequeñas y medianas empresas
           </p>
           <Link to="/auth">
             <Button size="lg" className="text-lg px-8 py-3">
@@ -77,11 +77,11 @@ const Index = () => {
             <CardHeader>
               <CardTitle className="text-2xl">¿Listo para comenzar?</CardTitle>
               <CardDescription>
-                Únete a miles de PYMEs que ya confían en ContaPYME para su gestión contable
+                Únete a miles de PYMEs que ya confían en OnePYME para su gestión contable
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link to="/auth">
+              <Link to="/auth?tab=register">
                 <Button size="lg" className="text-lg px-8 py-3">
                   Crear Cuenta Gratuita
                 </Button>

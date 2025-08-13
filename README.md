@@ -1,237 +1,141 @@
-# ContaPYME - Sistema de Gestión para Pymes Argentinas
+# 🏢 OnePYME - Sistema de Contabilidad para Pymes Argentinas
 
-## 🚀 Estado Actual del Proyecto
+Sistema completo de contabilidad, facturación y gestión empresarial integrado con Supabase y N8N.
 
-**Versión:** 1.0.0 - Estable  
-**Última actualización:** Enero 2025  
-**Estado:** ✅ **FUNCIONAL Y LISTO PARA PRODUCCIÓN**
+## 🚀 **Setup Rápido (5 minutos)**
 
-## 📋 Resumen Ejecutivo
-
-ContaPYME es un sistema integral de gestión empresarial diseñado específicamente para Pymes argentinas. El sistema incluye módulos de facturación electrónica, gestión de stock, CRM, contabilidad básica y automatizaciones con n8n.
-
-### ✅ **FUNCIONALIDADES IMPLEMENTADAS Y FUNCIONANDO:**
-
-- **🔐 Autenticación y Usuarios:** Sistema completo de login/logout con roles
-- **🏢 Gestión Multi-empresa:** Soporte para múltiples empresas con aislamiento de datos
-- **📦 Gestión de Productos:** CRUD completo con stock y movimientos
-- **👥 Gestión de Clientes:** Base de datos de clientes con información fiscal
-- **📄 Facturación Electrónica:** Integración con AFIP (estructura lista)
-- **💰 Gestión de Pagos:** Registro y seguimiento de pagos
-- **📊 Dashboard:** Métricas y reportes en tiempo real
-- **⚙️ Configuración:** Panel de configuración avanzado con opciones de desarrollador
-- **🔗 Integración n8n:** Conexión con automatizaciones (configurada)
-- **🎨 UI/UX:** Interfaz moderna con temas claro/oscuro y configuración de densidad
-
-## 🏗️ Arquitectura Técnica
-
-### **Frontend:**
-- **Framework:** React 18 + TypeScript
-- **Build Tool:** Vite
-- **Styling:** Tailwind CSS + Radix UI + Shadcn/ui
-- **State Management:** React Hooks + Context API
-- **HTTP Client:** Supabase Client
-
-### **Backend:**
-- **Database:** PostgreSQL (Supabase)
-- **Authentication:** Supabase Auth
-- **Real-time:** Supabase Realtime
-- **Storage:** Supabase Storage
-
-### **Automatizaciones:**
-- **Platform:** n8n (self-hosted)
-- **Integrations:** AFIP, WhatsApp, Email, Google Drive
-- **Webhooks:** Configurables desde la aplicación
-
-## 🗄️ Base de Datos
-
-### **Esquema Limpio y Unificado:**
-- ✅ **Tablas principales:** empresas, profiles, productos, clientes, proveedores
-- ✅ **Facturación:** facturas_emitidas, factura_productos, pagos
-- ✅ **Stock:** movimientos_stock, alertas_stock
-- ✅ **Compras:** ordenes_compra
-- ✅ **Recetas:** recetas (para restaurantes/industrias)
-- ✅ **Seguridad:** RLS (Row Level Security) habilitado en todas las tablas
-- ✅ **Índices:** Optimizados para rendimiento
-- ✅ **Triggers:** Actualización automática de timestamps
-
-### **Migraciones:**
-- ✅ **Esquema final:** `20250201000006_final_clean_schema.sql`
-- ✅ **Migraciones limpias:** Solo archivos esenciales mantenidos
-- ✅ **Sin duplicados:** Eliminadas migraciones temporales
-
-## 🚀 Instalación y Configuración
-
-### **Requisitos:**
-- Node.js 18+
-- npm o yarn
+### **1️⃣ Prerrequisitos**
+- Node.js 18+ 
+- Git
 - Cuenta de Supabase
-- Instancia n8n (opcional para automatizaciones)
+- Cuenta de N8N (opcional)
 
-### **Configuración Rápida:**
-
-1. **Clonar repositorio:**
+### **2️⃣ Clonar y Configurar**
 ```bash
-git clone [URL_DEL_REPO]
-cd contapyme
-```
+# Clonar repositorio
+git clone https://github.com/chelof100/onepyme.git
+cd onepyme
 
-2. **Instalar dependencias:**
-```bash
+# Instalar dependencias
 npm install
+
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales de Supabase
 ```
 
-3. **Configurar variables de entorno:**
+### **3️⃣ Setup Automático**
 ```bash
-cp .env.example .env.local
-# Editar .env.local con tus credenciales
+# Setup completo (base de datos + aplicación)
+npm run setup
+
+# Solo verificar estado
+npm run verify
+
+# Solo setup de N8N (opcional)
+npm run setup:n8n:simple
 ```
 
-4. **Ejecutar migración de base de datos:**
-- Ir a Supabase Dashboard
-- SQL Editor
-- Ejecutar: `20250201000006_final_clean_schema.sql`
-
-5. **Iniciar aplicación:**
+### **4️⃣ Ejecutar Aplicación**
 ```bash
+# Desarrollo
 npm run dev
+
+# Producción
+npm run build
+npm run preview
 ```
 
-## 🔧 Configuración de Variables de Entorno
+## 🏗️ **Arquitectura**
 
-### **Archivo `.env.local` (tu configuración personal):**
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **Automatización**: N8N Workflows
+- **Estado**: React Context + TanStack Query
+
+## 📁 **Estructura del Proyecto**
+
+```
+onepyme/
+├── src/                    # Código fuente principal
+├── demo/                   # Versión de demostración
+├── supabase/              # Configuración y migrations
+├── n8n-workflows/         # Workflows de automatización
+├── docs/                  # Documentación técnica
+└── scripts/               # Scripts de setup automático
+```
+
+## 🔧 **Scripts Disponibles**
+
+| Comando | Descripción |
+|---------|-------------|
+| `npm run setup` | Setup completo del sistema |
+| `npm run verify` | Verificar estado de la base de datos |
+| `npm run setup:n8n` | Configurar N8N completo |
+| `npm run setup:n8n:simple` | Configurar N8N básico |
+| `npm run dev` | Ejecutar en modo desarrollo |
+| `npm run build` | Construir para producción |
+
+## 🌐 **Variables de Entorno**
+
+Crear archivo `.env` con:
+
 ```env
-# Supabase
 VITE_SUPABASE_URL=tu_url_de_supabase
 VITE_SUPABASE_ANON_KEY=tu_anon_key
-
-# n8n (opcional)
-VITE_N8N_URL=https://tu-instancia-n8n.com
-VITE_N8N_API_KEY=tu_api_key_n8n
-
-# AFIP (para facturación electrónica)
-VITE_AFIP_CERT_PATH=path/to/cert.pem
-VITE_AFIP_KEY_PATH=path/to/key.pem
-VITE_AFIP_CUIT=tu_cuit
+VITE_SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+N8N_BASE_URL=http://localhost:5678
+N8N_API_KEY=tu_api_key_n8n
 ```
 
-### **Archivo `.env` (repositorio - genérico):**
-```env
-# Configuración genérica para clientes
-VITE_SUPABASE_URL=REEMPLAZAR_CON_URL_CLIENTE
-VITE_SUPABASE_ANON_KEY=REEMPLAZAR_CON_ANON_KEY_CLIENTE
-VITE_N8N_URL=REEMPLAZAR_CON_URL_N8N_CLIENTE
-VITE_N8N_API_KEY=REEMPLAZAR_CON_API_KEY_N8N_CLIENTE
-```
+## 📊 **Funcionalidades Principales**
 
-## 📱 Uso del Sistema
+- ✅ **Gestión de Usuarios** con roles y permisos
+- ✅ **Sistema Multi-Empresa** con RLS
+- ✅ **Facturación Electrónica** integrada con AFIP
+- ✅ **Control de Stock** con alertas automáticas
+- ✅ **Gestión de Recetas** y costos
+- ✅ **Dashboard** con métricas en tiempo real
+- ✅ **Workflows Automatizados** con N8N
 
-### **Login:**
-- **Email:** admin@contapyme.com
-- **Password:** (configurar en Supabase Auth)
+## 🧪 **Testing**
 
-### **Módulos Principales:**
-1. **Dashboard:** Vista general y métricas
-2. **Stock:** Gestión de productos e inventario
-3. **Clientes:** Base de datos de clientes
-4. **Facturación:** Emisión de facturas electrónicas
-5. **Compras:** Órdenes de compra y proveedores
-6. **Configuración:** Ajustes del sistema
-
-### **Configuración Avanzada:**
-- **Opciones de Desarrollador:** Configuración de n8n, webhooks, conexiones
-- **Estado del Sistema:** Monitoreo de conexiones en tiempo real
-- **Configuración de Usuario:** Tema, densidad, notificaciones
-
-## 🔄 Automatizaciones n8n
-
-### **Workflows Implementados:**
-- ✅ **Health Check:** Monitoreo de estado
-- ✅ **Emitir Factura:** Proceso de facturación
-- ✅ **Actualizar Stock:** Gestión de inventario
-- ✅ **Registrar Pago:** Procesamiento de pagos
-- ✅ **Alerta Stock:** Notificaciones de stock bajo
-
-### **Configuración:**
-- **URL:** Configurable desde la aplicación
-- **API Key:** Configurable desde la aplicación
-- **Webhooks:** Generados automáticamente por workflow
-
-## 🧪 Testing
-
-### **Funcionalidades Probadas:**
-- ✅ **Autenticación:** Login/logout funcionando
-- ✅ **CRUD Productos:** Crear, leer, actualizar, eliminar productos
-- ✅ **Gestión de Clientes:** CRUD completo
-- ✅ **Conexiones:** Supabase y n8n funcionando
-- ✅ **UI/UX:** Temas, densidad, configuración de usuario
-- ✅ **Base de Datos:** Esquema limpio y funcional
-
-## 📈 Roadmap
-
-### **Próximas Funcionalidades:**
-- 🔄 **Facturación AFIP:** Integración completa con AFIP
-- 🔄 **WhatsApp Integration:** Notificaciones automáticas
-- 🔄 **Reportes Avanzados:** Exportación a PDF/Excel
-- 🔄 **Backup Automático:** Respaldo de datos
-- 🔄 **Multi-idioma:** Soporte para inglés
-
-## 🛠️ Desarrollo
-
-### **Scripts Disponibles:**
 ```bash
-npm run dev          # Desarrollo
-npm run build        # Build de producción
-npm run preview      # Preview de producción
-npm run lint         # Linting
-npm run type-check   # Verificación de tipos
+# Ejecutar tests
+npm run test
+
+# Tests con UI
+npm run test:ui
+
+# Cobertura
+npm run test:coverage
 ```
 
-### **Estructura del Proyecto:**
-```
-src/
-├── components/      # Componentes reutilizables
-├── hooks/          # Custom hooks
-├── pages/          # Páginas principales
-├── services/       # Servicios externos
-├── styles/         # Estilos globales
-├── types/          # Definiciones de tipos
-└── utils/          # Utilidades
-```
+## 📚 **Documentación Adicional**
 
-## 🤝 Contribución
+- [Guía de Implementación](docs/GUIA_IMPLEMENTACION.md)
+- [Configuración N8N](docs/N8N_INTEGRATION.md)
+- [Arquitectura del Sistema](docs/ANALISIS_COMPLETO_PROYECTO.md)
+- [Plan de Testing](docs/TESTING_SUITE.md)
 
-### **Guías de Desarrollo:**
-1. **Seguir convenciones:** TypeScript, ESLint, Prettier
-2. **Testing:** Probar funcionalidades antes de commit
-3. **Documentación:** Actualizar README cuando sea necesario
-4. **Migraciones:** Usar `IF NOT EXISTS` para compatibilidad
+## 🤝 **Contribuir**
 
-### **Proceso de Commit:**
-```bash
-git add .
-git commit -m "feat: descripción del cambio"
-git push origin main
-```
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
 
-## 📞 Soporte
+## 📄 **Licencia**
 
-### **Contacto:**
-- **Email:** soporte@contapyme.com
-- **Documentación:** [URL_DOCUMENTACION]
-- **Issues:** GitHub Issues
+Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para detalles.
 
-### **Troubleshooting Común:**
-1. **Error de conexión Supabase:** Verificar variables de entorno
-2. **Error de n8n:** Verificar URL y API key
-3. **Error de base de datos:** Ejecutar migración final
-4. **Error de autenticación:** Verificar configuración de Auth en Supabase
+## 🆘 **Soporte**
 
-## 📄 Licencia
-
-Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
+- **Issues**: [GitHub Issues](https://github.com/chelof100/onepyme/issues)
+- **Documentación**: [docs/](docs/)
+- **Wiki**: [GitHub Wiki](https://github.com/chelof100/onepyme/wiki)
 
 ---
 
-**ContaPYME** - Sistema de Gestión para Pymes Argentinas  
-**Versión:** 1.0.0 | **Estado:** ✅ **PRODUCCIÓN READY**
+**Desarrollado con ❤️ por el equipo OnePYME**

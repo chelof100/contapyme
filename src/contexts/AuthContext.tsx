@@ -17,7 +17,7 @@ interface UserProfile {
   last_name: string | null;
   email: string | null;
   empresa_id: string | null;
-  role: 'admin' | 'contador' | 'usuario';
+  role: 'admin' | 'contador' | 'usuario' | 'developer';
   avatar_url: string | null;
 }
 
@@ -77,19 +77,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Creating profile for user:', userId, email);
       
-      // Get default empresa
+      // Buscar empresa existente en lugar de usar empresa_id hardcodeado
       const { data: empresas, error: empresaError } = await supabase
-        .from('empresas')
-        .select('id, razon_social')
-        .eq('razon_social', 'ContaPYME Default')
+        .from('empresa')
+        .select('id, nombre')
+        .limit(1)
         .single();
 
       if (empresaError || !empresas) {
-        console.error('Default empresa not found:', empresaError);
-        return null;
+        console.error('Error fetching empresa or no empresa exists:', empresaError);
+        throw new Error('No hay empresa configurada en el sistema. Contacta al administrador.');
       }
-
-      console.log('Found empresa:', empresas);
 
       const profileData = {
         id: userId,
@@ -122,181 +120,169 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
    useEffect(() => {
-  let mounted = true;
+    let mounted = true;
 
-  // Set up auth state listener
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    async (event, session) => {
-      if (!mounted) return;
-      
-      console.log('Auth state change:', event, session?.user?.email);
-      setSession(session);
-      
-      if (session?.user) {
-        console.log('🔍 [AuthContext] User session detected:', session.user.email);
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
         
-        // Create extended user with legacy properties
-        const extendedUser: ExtendedUser = {
-          ...session.user,
-          pyme_id: '',
-          pyme_nombre: '',
-          permissions: []
-        };
-        setUser(extendedUser);
+        console.log('Auth state change:', event, session?.user?.email);
+        setSession(session);
         
-        // Fetch user profile (setTimeout evita race conditions)
-        setTimeout(async () => {
-          if (!mounted) return;
+        if (session?.user) {
+          console.log('🔍 [AuthContext] User session detected:', session.user.email);
           
-          try {
-            let profileData = await fetchProfile(session.user.id);
+          // Create extended user with legacy properties
+          const extendedUser: ExtendedUser = {
+            ...session.user,
+            pyme_id: '',
+            pyme_nombre: '',
+            permissions: []
+          };
+          setUser(extendedUser);
+          
+          // Fetch user profile (setTimeout evita race conditions)
+          setTimeout(async () => {
+            if (!mounted) return;
             
-            // Si no existe perfil y es un login nuevo, crearlo
-            if (!profileData && event === 'SIGNED_IN') {
-              console.log('Creating profile for new user...');
-              profileData = await createProfile(session.user.id, session.user.email!);
-              if (profileData) {
-                console.log('Profile created successfully');
+            try {
+              let profileData = await fetchProfile(session.user.id);
+              
+              // Si no existe perfil y es un login nuevo, crearlo
+              if (!profileData && event === 'SIGNED_IN') {
+                console.log('Creating profile for new user...');
+                profileData = await createProfile(session.user.id, session.user.email!);
+                if (profileData) {
+                  console.log('Profile created successfully');
+                }
+              }
+              
+              if (mounted) {
+                setProfile(profileData);
+                
+                if (profileData) {
+                  console.log('✅ [AuthContext] Profile loaded successfully:', {
+                    empresa_id: profileData.empresa_id,
+                    role: profileData.role
+                  });
+                  
+                  // Si el perfil no tiene empresa_id, usar el ID por defecto
+                  if (!profileData.empresa_id) {
+                    console.log('⚠️ [AuthContext] Profile has no empresa_id, using default empresa...');
+                    profileData.empresa_id = '00000000-0000-0000-0000-000000000001';
+                  }
+                  
+                  // Update user with profile data
+                  const updatedUser: ExtendedUser = {
+                    ...extendedUser,
+                    pyme_id: profileData.empresa_id || '',
+                    pyme_nombre: 'OnePYME',
+                    permissions: getRolePermissions(profileData.role)
+                  };
+                  setUser(updatedUser);
+                } else {
+                  // Si no hay perfil, usar valores por defecto
+                  const defaultUser: ExtendedUser = {
+                    ...extendedUser,
+                    pyme_id: '',
+                    pyme_nombre: 'OnePYME',
+                    permissions: []
+                  };
+                  setUser(defaultUser);
+                }
+              }
+            } catch (error) {
+              console.error('Error in auth state change:', error);
+              if (mounted) {
+                setUser(null);
+                setProfile(null);
               }
             }
-            
-                         if (mounted) {
-               setProfile(profileData);
-               
-               if (profileData) {
-                 console.log('✅ [AuthContext] Profile loaded successfully:', {
-                   empresa_id: profileData.empresa_id,
-                   role: profileData.role
-                 });
-                 
-                 // Si el perfil no tiene empresa_id, asignarle la empresa por defecto
-                 if (!profileData.empresa_id) {
-                   console.log('⚠️ [AuthContext] Profile has no empresa_id, assigning default empresa...');
-                   
-                                       // Obtener empresa por defecto
-                    console.log('🔍 [AuthContext] Buscando empresa por defecto...');
-                    const { data: empresaDefault, error: empresaError } = await supabase
-                      .from('empresas')
-                      .select('id')
-                      .eq('razon_social', 'ContaPYME Default')
-                      .single();
-                    
-                    console.log('🔍 [AuthContext] Resultado búsqueda empresa:', { data: empresaDefault, error: empresaError });
-                   
-                                       if (empresaDefault?.id) {
-                      console.log('✅ [AuthContext] Empresa encontrada:', empresaDefault.id);
-                      // Actualizar perfil con empresa_id
-                      const { error: updateError } = await supabase
-                        .from('profiles')
-                        .update({ empresa_id: empresaDefault.id })
-                        .eq('id', session.user.id);
-                      
-                      if (!updateError) {
-                        console.log('✅ [AuthContext] Profile updated with empresa_id:', empresaDefault.id);
-                        profileData.empresa_id = empresaDefault.id;
-                      } else {
-                        console.error('❌ [AuthContext] Error updating profile:', updateError);
-                      }
-                    } else {
-                      console.error('❌ [AuthContext] No se encontró empresa por defecto:', empresaError);
-                      // Usar ID por defecto como fallback
-                      const fallbackEmpresaId = '00000000-0000-0000-0000-000000000001';
-                      console.log('⚠️ [AuthContext] Usando empresa fallback:', fallbackEmpresaId);
-                      
-                      const { error: updateError } = await supabase
-                        .from('profiles')
-                        .update({ empresa_id: fallbackEmpresaId })
-                        .eq('id', session.user.id);
-                      
-                      if (!updateError) {
-                        console.log('✅ [AuthContext] Profile updated with fallback empresa_id:', fallbackEmpresaId);
-                        profileData.empresa_id = fallbackEmpresaId;
-                      } else {
-                        console.error('❌ [AuthContext] Error updating profile with fallback:', updateError);
-                      }
-                    }
-                 }
-                 
-                 // Update user with profile data
-                 const updatedUser: ExtendedUser = {
-                   ...extendedUser,
-                   pyme_id: profileData.empresa_id || '',
-                   pyme_nombre: 'ContaPYME',
-                   permissions: getRolePermissions(profileData.role)
-                 };
-                 setUser(updatedUser);
-               } else {
-                 console.error('❌ [AuthContext] No profile found for user:', session.user.email);
-               }
-             }
-          } catch (error) {
-            console.error('Error in profile handling:', error);
-          }
-        }, 0);
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-      
-      if (mounted) {
-        setLoading(false);
-      }
-    }
-  );
-
-  // Check for existing session
-  const checkInitialSession = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!mounted) return;
-      
-      setSession(session);
-      
-      if (session?.user) {
-        const extendedUser: ExtendedUser = {
-          ...session.user,
-          pyme_id: '',
-          pyme_nombre: 'ContaPYME',
-          permissions: []
-        };
-        setUser(extendedUser);
-        
-        const profileData = await fetchProfile(session.user.id);
-        if (mounted) {
-          setProfile(profileData);
-          if (profileData) {
-            const updatedUser: ExtendedUser = {
-              ...extendedUser,
-              pyme_id: profileData.empresa_id || '',
-              pyme_nombre: 'ContaPYME',
-              permissions: getRolePermissions(profileData.role)
-            };
-            setUser(updatedUser);
-          }
+          }, 0);
+        } else {
+          setUser(null);
+          setProfile(null);
         }
-      } else {
-        setUser(null);
+        
+        if (mounted) {
+          setLoading(false);
+        }
       }
-      
-      if (mounted) {
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Error checking initial session:', error);
-      if (mounted) {
-        setLoading(false);
-      }
-    }
-  };
+    );
 
-  checkInitialSession();
+    // Check for existing session
+    const checkInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        setSession(session);
+        
+        if (session?.user) {
+          const extendedUser: ExtendedUser = {
+            ...session.user,
+            pyme_id: '',
+            pyme_nombre: 'OnePYME',
+            permissions: []
+          };
+          setUser(extendedUser);
+          
+          const profileData = await fetchProfile(session.user.id);
+          if (mounted) {
+            if (profileData) {
+              // Si el perfil no tiene empresa_id, usar el ID por defecto
+              if (!profileData.empresa_id) {
+                profileData.empresa_id = '00000000-0000-0000-0000-000000000001';
+              }
+              
+              setProfile(profileData);
+              const updatedUser: ExtendedUser = {
+                ...extendedUser,
+                pyme_id: profileData.empresa_id || '',
+                pyme_nombre: 'OnePYME',
+                permissions: getRolePermissions(profileData.role)
+              };
+              setUser(updatedUser);
+            } else {
+              // Si no hay perfil, crear uno
+              console.log('⚠️ [AuthContext] No profile found, creating one...');
+              const newProfile = await createProfile(session.user.id, session.user.email || '');
+              if (newProfile) {
+                setProfile(newProfile);
+                const updatedUser: ExtendedUser = {
+                  ...extendedUser,
+                  pyme_id: newProfile.empresa_id || '',
+                  pyme_nombre: 'OnePYME',
+                  permissions: getRolePermissions(newProfile.role)
+                };
+                setUser(updatedUser);
+              }
+            }
+          }
+        } else {
+          setUser(null);
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error checking initial session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  return () => {
-    mounted = false;
-    subscription.unsubscribe();
-  };
-}, []);
+    checkInitialSession();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const signUp = async (email: string, password: string, userData: { username: string; first_name: string; last_name: string }) => {
     console.log('Attempting signup for:', email);
@@ -327,89 +313,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     console.log('Attempting signin for:', email);
     
-    // Verificar si es el usuario de prueba
-    if (email === 'admin@contapyme.com' && password === 'admin123') {
-      // Obtener el ID real de la empresa default desde la base de datos
-      const { data: empresaDefault } = await supabase
-        .from('empresas')
-        .select('id')
-        .eq('razon_social', 'ContaPYME Default')
-        .single();
-      
-      let empresaId = empresaDefault?.id || null;
-      
-      // Si no hay empresa por defecto, crear una
-      if (!empresaId) {
-        try {
-          const { data: newEmpresa, error: empresaError } = await supabase
-            .from('empresas')
-            .insert({
-              razon_social: 'ContaPYME Default',
-              nombre_fantasia: 'ContaPYME',
-              cuit: '20-12345678-9',
-              email: 'admin@contapyme.com',
-              telefono: '+54 11 1234-5678',
-              domicilio: 'Av. Corrientes 1234, CABA',
-              condicion_iva: 'Responsable Inscripto',
-              activa: true
-            })
-            .select('id')
-            .single();
-          
-          if (!empresaError && newEmpresa) {
-            empresaId = newEmpresa.id;
-            console.log('Created default empresa with ID:', empresaId);
-          } else {
-            console.error('Error creating default empresa:', empresaError);
-            // Usar ID por defecto si falla la creación
-            empresaId = '00000000-0000-0000-0000-000000000001';
-          }
-        } catch (error) {
-          console.error('Error creating default empresa:', error);
-          // Usar ID por defecto si falla la creación
-          empresaId = '00000000-0000-0000-0000-000000000001';
-        }
-      }
-      
-      console.log('Mock login - empresa found:', empresaId);
-      
-      // Asegurar que empresaId nunca sea null
-      const finalEmpresaId = empresaId || '00000000-0000-0000-0000-000000000001';
-      
-      const mockUser: ExtendedUser = {
-        id: 'test-user-id-12345678901234567890',
-        email: 'admin@contapyme.com',
-        pyme_id: finalEmpresaId,
-        pyme_nombre: 'ContaPYME Default',
-        permissions: ['developer_config', 'manage_users', 'view_all', 'edit_all'],
-        aud: 'authenticated',
-        role: 'authenticated',
-        email_confirmed_at: new Date().toISOString(),
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: {},
-        user_metadata: {},
-        identities: [],
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-      
-      const mockProfile: UserProfile = {
-        id: 'test-user-id-12345678901234567890',
-        username: 'admin',
-        first_name: 'Admin',
-        last_name: 'Usuario',
-        email: 'admin@contapyme.com',
-        empresa_id: finalEmpresaId,
-        role: 'admin',
-        avatar_url: null
-      };
-      
-      setUser(mockUser);
-      setProfile(mockProfile);
-      
-      console.log('Mock signin successful for admin user with empresa_id:', empresaId);
-      return { error: null };
-    }
+
+    
+
     
     console.log('Attempting real Supabase signin for:', email);
     
@@ -445,7 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isAdmin = (): boolean => {
-    return profile?.role === 'admin' || false;
+    return profile?.role === 'admin' || profile?.role === 'developer' || false;
   };
 
   // Legacy compatibility methods
@@ -458,8 +364,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut();
   };
 
-  const getRolePermissions = (role: 'admin' | 'contador' | 'usuario'): string[] => {
+  const getRolePermissions = (role: 'admin' | 'contador' | 'usuario' | 'developer'): string[] => {
     const rolePermissions: Record<string, string[]> = {
+      developer: ['super_admin', 'developer_config', 'manage_users', 'view_all', 'edit_all', 'system_config', 'database_access', 'api_management'],
       admin: ['developer_config', 'manage_users', 'view_all', 'edit_all'],
       contador: ['view_all', 'edit_all'],
       usuario: ['view_own', 'edit_own']

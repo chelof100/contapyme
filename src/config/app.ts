@@ -33,7 +33,6 @@ interface AppConfig {
   features: {
     realTimeSync: boolean;
     n8nIntegration: boolean;
-    multiTenant: boolean; // Nueva opción
     afipIntegration: boolean;
     emailNotifications: boolean;
     whatsappNotifications: boolean;
@@ -45,7 +44,6 @@ interface AppConfig {
     id: string;
     name: string;
     webhookPrefix: string; // Puede ser vacío para webhooks simples
-    isMultiTenant: boolean;
   };
   validation: {
     cuitRequired: boolean;
@@ -111,7 +109,6 @@ const configSchema = z.object({
   features: z.object({
     realTimeSync: z.boolean(),
     n8nIntegration: z.boolean(),
-    multiTenant: z.boolean(),
     afipIntegration: z.boolean(),
     emailNotifications: z.boolean(),
     whatsappNotifications: z.boolean(),
@@ -121,8 +118,7 @@ const configSchema = z.object({
   client: z.object({
     id: z.string(),
     name: z.string(),
-    webhookPrefix: z.string().optional(),
-    isMultiTenant: z.boolean()
+    webhookPrefix: z.string().optional()
   }),
   validation: z.object({
     cuitRequired: z.boolean(),
@@ -159,7 +155,7 @@ const configSchema = z.object({
 
 const defaultConfig: AppConfig = {
   app: {
-    name: 'ContaPYME',
+    name: 'OnePYME',
     version: '1.0.0',
     environment: import.meta.env.MODE as 'development' | 'staging' | 'production',
     debug: import.meta.env.MODE === 'development',
@@ -194,7 +190,6 @@ const defaultConfig: AppConfig = {
   features: {
     realTimeSync: true,
     n8nIntegration: true,
-    multiTenant: false,
     afipIntegration: false,
     emailNotifications: true,
     whatsappNotifications: true,
@@ -204,8 +199,7 @@ const defaultConfig: AppConfig = {
   client: {
     id: 'default-client',
     name: 'Default Client',
-    webhookPrefix: '',
-    isMultiTenant: false
+    webhookPrefix: ''
   },
   validation: {
     cuitRequired: true,
@@ -243,7 +237,7 @@ const defaultConfig: AppConfig = {
 class ConfigManager {
   private config: AppConfig;
   private listeners: Array<(config: AppConfig) => void> = [];
-  private readonly STORAGE_KEY = 'contapyme-config';
+  private readonly STORAGE_KEY = 'onepyme-config';
   private readonly CONFIG_VERSION = '1.0';
 
   constructor() {

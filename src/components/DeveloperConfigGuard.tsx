@@ -18,11 +18,21 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
 
   // Verificar si el usuario tiene permisos de desarrollador
   const hasDeveloperAccess = () => {
-    if (!user || !profile) return false;
+    if (!user) return false;
     
-    // Verificar rol de administrador o desarrollador
-    const allowedRoles = ['admin', 'developer', 'super_admin'];
-    return allowedRoles.includes(profile.role?.toLowerCase() || '');
+    // Verificar si es el usuario developer del sistema
+    if (user.email === 'developer@onepyme.pro') return true;
+    
+    // Verificar si es el usuario admin del sistema (salvavidas)
+    if (user.email === 'admin@onepyme.pro') return true;
+    
+    // Verificar rol de administrador o desarrollador (para compatibilidad)
+    if (profile) {
+      const allowedRoles = ['admin', 'developer', 'super_admin'];
+      return allowedRoles.includes(profile.role?.toLowerCase() || '');
+    }
+    
+    return false;
   };
 
   // Verificar si el usuario está autenticado

@@ -30,10 +30,10 @@ export function useSupabaseData<T>(
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
-    if (!user || !profile?.empresa_id || !enabled) {
+    if (!user || !enabled) {
       setLoading(false);
       return;
     }
@@ -44,10 +44,10 @@ export function useSupabaseData<T>(
       
       let query = supabase.from(table).select(select);
 
-      // Aplicar filtro automático por empresa
-      query = query.eq('empresa_id', profile.empresa_id);
+      // SIMPLE TENANT: No hay filtros automáticos por empresa_id
+      // Una sola empresa por instalación = no hay necesidad de filtrar
 
-      // Aplicar filtros adicionales
+      // Aplicar filtros adicionales si se especifican
       if (filters) {
         Object.entries(filters).forEach(([key, value]) => {
           if (value !== undefined && value !== null) {
@@ -83,41 +83,20 @@ export function useSupabaseData<T>(
     } finally {
       setLoading(false);
     }
-  }, [table, select, JSON.stringify(filters), user?.id, profile?.empresa_id, enabled]);
+  }, [table, select, JSON.stringify(filters), user?.id, enabled]);
 
   const create = useCallback(async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T | null> => {
-    // Debugging temporal - MÁS VISIBLE
-    console.log('🚨🚨🚨 [AUTH DEBUG] ==========================================');
-    console.log('🔍 [useSupabaseData] Debugging create:', {
-      user: !!user,
-      user_id: user?.id,
-      profile: !!profile,
-      empresa_id: profile?.empresa_id,
-      table
-    });
-    console.log('🚨🚨🚨 [AUTH DEBUG] ==========================================');
-    
-    if (!user || !profile?.empresa_id) {
-      console.error('❌❌❌ [AUTH ERROR] ==========================================');
-      console.error('❌ [useSupabaseData] Auth check failed:', {
-        user_exists: !!user,
-        profile_exists: !!profile,
-        empresa_id: profile?.empresa_id
-      });
-      console.error('❌❌❌ [AUTH ERROR] ==========================================');
+    if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
-      const dataWithEmpresa = {
-        ...data,
-        empresa_id: profile.empresa_id
-      };
-
+      // SIMPLE TENANT: No agregar empresa_id automáticamente
+      // Los datos se insertan tal como vienen
       const { data: result, error: insertError } = await supabase
         .from(table)
-        .insert(dataWithEmpresa)
+        .insert(data)
         .select()
         .single();
 
@@ -134,20 +113,20 @@ export function useSupabaseData<T>(
       console.error(`Error creating ${table}:`, err);
       return null;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   const update = useCallback(async (id: string, data: Partial<T>): Promise<T | null> => {
-    if (!user || !profile?.empresa_id) {
+    if (!user) {
       toast.error('Usuario no autenticado');
-      return null;
+      return false;
     }
 
     try {
+      // SIMPLE TENANT: No verificar empresa_id en updates
       const { data: result, error: updateError } = await supabase
         .from(table)
         .update(data)
         .eq('id', id)
-        .eq('empresa_id', profile.empresa_id)
         .select()
         .single();
 
@@ -166,20 +145,20 @@ export function useSupabaseData<T>(
       console.error(`Error updating ${table}:`, err);
       return null;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   const remove = useCallback(async (id: string): Promise<boolean> => {
-    if (!user || !profile?.empresa_id) {
+    if (!user) {
       toast.error('Usuario no autenticado');
       return false;
     }
 
     try {
+      // SIMPLE TENANT: No verificar empresa_id en deletes
       const { error: deleteError } = await supabase
         .from(table)
         .delete()
-        .eq('id', id)
-        .eq('empresa_id', profile.empresa_id);
+        .eq('id', id);
 
       if (deleteError) throw deleteError;
 
@@ -194,7 +173,7 @@ export function useSupabaseData<T>(
       console.error(`Error deleting ${table}:`, err);
       return false;
     }
-  }, [table, user?.id, profile?.empresa_id]);
+  }, [table, user?.id]);
 
   useEffect(() => {
     fetchData();
@@ -393,20 +372,188 @@ export function useUsers() {
   }>('users');
 }
 
-// Hook específico para empresas
+// Hook específico para empresas (proveedores)
 export function useEmpresas() {
   return useSupabaseData<{
     id: string;
     nombre: string;
-    rut: string;
-    direccion: string;
-    telefono: string;
-    email: string;
-    sector: string;
-    tipo_empresa: string;
+    razon_social: string | null;
+    nombre_fantasia: string | null;
+    cuit: string | null;
+    email: string | null;
+    telefono: string | null;
+    direccion: string | null;
+    ciudad: string | null;
+    provincia: string | null;
+    codigo_postal: string | null;
+    condicion_iva: string;
+    ingresos_brutos: string | null;
+    fecha_inicio_actividades: string | null;
+    logo_url: string | null;
+    activa: boolean;
     created_at: string;
     updated_at: string;
   }>('empresas');
+}
+
+// Hook específico para empresa (cliente)
+export function useEmpresa() {
+  const { user, profile } = useAuth();
+  const [empresa, setEmpresa] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEmpresa = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    // Si no hay empresa_id válido, no hacer consulta
+    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
+      setLoading(false);
+      setEmpresa(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error: queryError } = await supabase
+        .from('empresa')
+        .select('*')
+        .eq('id', profile.empresa_id)
+        .single();
+
+      if (queryError) {
+        // Si la empresa no existe, limpiar el error y establecer empresa como null
+        if (queryError.code === 'PGRST116') {
+          console.log('⚠️ [useEmpresa] Empresa no encontrada, estableciendo como null');
+          setEmpresa(null);
+          setError(null);
+        } else {
+          throw queryError;
+        }
+      } else {
+        setEmpresa(data);
+      }
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar empresa';
+      setError(errorMessage);
+      console.error('Error fetching empresa:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  const updateEmpresa = useCallback(async (data: Partial<any>): Promise<any | null> => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
+      toast.error('Usuario sin empresa asignada. Configure la empresa primero.');
+      return null;
+    }
+
+    try {
+      const { data: result, error } = await supabase
+        .from('empresa')
+        .update(data)
+        .eq('id', profile.empresa_id)
+        .select()
+        .single();
+
+      if (error) {
+        // Si la empresa no existe, crear una nueva
+        if (error.code === 'PGRST116') {
+          console.log('⚠️ [useEmpresa] Empresa no encontrada, creando nueva empresa...');
+          
+          // Crear nueva empresa directamente
+          const { data: newEmpresa, error: createError } = await supabase
+            .from('empresa')
+            .insert({
+              ...data,
+              activa: true
+            })
+            .select()
+            .single();
+
+          if (createError) throw createError;
+
+          setEmpresa(newEmpresa);
+          toast.success('Empresa creada correctamente');
+          return newEmpresa;
+        } else {
+          throw error;
+        }
+      }
+
+      setEmpresa(result);
+      toast.success('Empresa actualizada correctamente');
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar empresa';
+      toast.error(errorMessage);
+      console.error('Error updating empresa:', err);
+      return null;
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  // Nueva función para crear o asignar empresa automáticamente
+  const createOrUpdateEmpresa = useCallback(async (data: any): Promise<any | null> => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    try {
+      console.log('🔍 [useEmpresa] Creando/asignando empresa con datos:', data);
+      
+      // Usar siempre la función RPC (funciona para usuarios mock y reales)
+      const { data: result, error } = await supabase
+        .rpc('asignar_o_crear_empresa', {
+          datos_empresa: data,
+          usuario_id: user.id
+        });
+
+      if (error) {
+        console.error('❌ [useEmpresa] Error en RPC:', error);
+        throw error;
+      }
+
+      console.log('✅ [useEmpresa] Empresa asignada/creada:', result);
+
+      // Refetch empresa data
+      await fetchEmpresa();
+      
+      toast.success('Empresa configurada correctamente');
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al configurar empresa';
+      toast.error(errorMessage);
+      console.error('Error creating/updating empresa:', err);
+      return null;
+    }
+  }, [user?.id, fetchEmpresa]);
+
+  useEffect(() => {
+    fetchEmpresa();
+  }, [fetchEmpresa]);
+
+  return {
+    data: empresa,
+    loading,
+    error,
+    refetch: fetchEmpresa,
+    update: updateEmpresa,
+    createOrUpdate: createOrUpdateEmpresa
+  };
 }
 
 // Hook para obtener datos del dashboard
@@ -421,7 +568,13 @@ export function useDashboardData() {
   });
 
   const fetchDashboardData = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
+    if (!user) return;
+    
+    // Si no hay empresa_id válido, no hacer consultas
+    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
+      setDashboardData(prev => ({ ...prev, loading: false }));
+      return;
+    }
 
     try {
       const [
