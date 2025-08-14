@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { useProyectos, useTiempoTrabajado, useEmpleados } from '@/hooks/useERPData';
-import { useClientes } from '@/hooks/useCRMData';
+import { useClientes } from '@/hooks/useSupabaseData';
 import { webhookService } from '@/services/webhookService';
 import { 
   Folder, 

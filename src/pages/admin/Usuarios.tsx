@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { supabaseAdmin } from '@/integrations/supabase/admin';
+// Cliente admin eliminado por seguridad - usar solo en scripts de backend
 import { toast } from 'sonner';
 import { 
   Card, 
@@ -15,7 +15,8 @@ import {
   Shield, 
   UserPlus, 
   X,
-  Key
+  Key,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -63,6 +64,9 @@ const UsuariosAdmin = () => {
   const [selectedUserForReset, setSelectedUserForReset] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [newUser, setNewUser] = useState<{
     email: string;
     password: string;
@@ -74,7 +78,7 @@ const UsuariosAdmin = () => {
     password: '',
     firstName: '',
     lastName: '',
-    role: 'usuario' as 'admin' | 'contador' | 'usuario' | 'developer',
+    role: 'usuario',
   });
 
   // Verificar permisos
@@ -93,16 +97,33 @@ const UsuariosAdmin = () => {
   // Cargar usuarios
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 [Usuarios] Starting to fetch users...');
+      
+      // Timeout de 10 segundos para evitar cuelgues
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000);
+      });
+      
+      const queryPromise = supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
 
-      if (error) throw error;
+      console.log('🔍 [Usuarios] Query result:', { data, error });
+
+      if (error) {
+        console.error('❌ [Usuarios] Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('✅ [Usuarios] Users loaded:', data?.length || 0);
       setUsers(data || []);
+      
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast.error('Error al cargar usuarios');
+      console.error('❌ [Usuarios] Error fetching users:', error);
+      toast.error('Error al cargar usuarios: ' + (error.message || 'Error desconocido'));
     } finally {
       setLoading(false);
     }
@@ -129,25 +150,14 @@ const UsuariosAdmin = () => {
     try {
       // Debug: Verificar datos del usuario
       console.log('🔍 Usuario a resetear:', selectedUserForReset);
-      console.log('🔑 Service Role Key configurado:', !!import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY);
+      console.log('🔒 Función de reset deshabilitada por seguridad');
       
-      // Usar cliente admin para reset password directo
-      const { error } = await supabaseAdmin.auth.admin.updateUserById(
-        selectedUserForReset.id,
-        { password: newPassword }
-      );
+      // Función de reset de password movida a script de backend por seguridad
+      toast.error('Función de reset de password no disponible en frontend por seguridad');
+      return;
 
-      if (error) {
-        console.error('❌ Error en reset:', error);
-        toast.error('Error al resetear password: ' + error.message);
-      } else {
-        console.log('✅ Password reseteado exitosamente');
-        toast.success('Password reseteado exitosamente!');
-        setShowResetPassword(false);
-        setNewPassword('');
-        setConfirmPassword('');
-        setSelectedUserForReset(null);
-      }
+      // Función deshabilitada por seguridad
+      console.log('✅ Función de reset deshabilitada por seguridad');
     } catch (error) {
       console.error('💥 Error inesperado:', error);
       toast.error('Error inesperado: ' + (error as Error).message);
@@ -185,6 +195,46 @@ const UsuariosAdmin = () => {
     }
   };
 
+  // Eliminar usuario
+  const deleteUser = async () => {
+    if (!selectedUserForDelete) return;
+
+    // Prevenir que el usuario se elimine a sí mismo
+    if (selectedUserForDelete.id === user?.id) {
+      toast.error('No puedes eliminar tu propia cuenta');
+      return;
+    }
+
+    // Prevenir eliminar el último admin/developer
+    const adminDevCount = users.filter(u => u.role === 'admin' || u.role === 'developer').length;
+    if ((selectedUserForDelete.role === 'admin' || selectedUserForDelete.role === 'developer') && adminDevCount <= 1) {
+      toast.error('No puedes eliminar el último administrador del sistema');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', selectedUserForDelete.id);
+
+      if (error) throw error;
+
+      setUsers(users.filter(u => u.id !== selectedUserForDelete.id));
+      toast.success('Usuario eliminado exitosamente');
+      
+      // Cerrar modal
+      setShowDeleteConfirm(false);
+      setSelectedUserForDelete(null);
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast.error('Error al eliminar el usuario');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Crear nuevo usuario
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -206,7 +256,7 @@ const UsuariosAdmin = () => {
 
       toast.success('Usuario creado exitosamente!');
       setShowCreateUser(false);
-      setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'usuario' as 'admin' | 'contador' | 'usuario' | 'developer' });
+      setNewUser({ email: '', password: '', firstName: '', lastName: '', role: 'usuario' });
       fetchUsers(); // Refresh users after creation
     } catch (error) {
       console.error('Error creating user:', error);
@@ -381,6 +431,20 @@ const UsuariosAdmin = () => {
                       >
                         <Key className="h-4 w-4" />
                         <span>Reset</span>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUserForDelete(user);
+                          setShowDeleteConfirm(true);
+                        }}
+                        className="flex items-center space-x-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        disabled={user.id === user?.id || ((user.role === 'admin' || user.role === 'developer') && users.filter(u => u.role === 'admin' || u.role === 'developer').length <= 1)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span>Eliminar</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -569,6 +633,66 @@ const UsuariosAdmin = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Eliminación */}
+      {showDeleteConfirm && selectedUserForDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-red-600">Confirmar Eliminación</h2>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedUserForDelete(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+              <div className="flex items-center mb-2">
+                <Trash2 className="h-5 w-5 text-red-600 mr-2" />
+                <p className="font-medium text-red-800">¿Estás seguro?</p>
+              </div>
+              <p className="text-sm text-red-700 mb-2">
+                Esta acción eliminará permanentemente al usuario:
+              </p>
+              <p className="text-sm font-medium text-red-800">
+                <strong>{selectedUserForDelete.first_name} {selectedUserForDelete.last_name}</strong>
+                <br />
+                <span className="text-red-600">{selectedUserForDelete.email}</span>
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                Esta acción no se puede deshacer.
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <Button
+                onClick={deleteUser}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleting ? 'Eliminando...' : 'Sí, Eliminar Usuario'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedUserForDelete(null);
+                }}
+                className="flex-1"
+                disabled={deleting}
+              >
+                Cancelar
+              </Button>
+            </div>
           </div>
         </div>
       )}

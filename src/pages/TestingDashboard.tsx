@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardData } from '@/hooks/useSupabaseData';
-import { useCRMDashboard } from '@/hooks/useCRMData';
+import { useCRMDashboard } from '@/hooks/useSupabaseData';
 import { useERPDashboard } from '@/hooks/useERPData';
 import { toast } from 'sonner';
 

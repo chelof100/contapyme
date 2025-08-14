@@ -28,12 +28,13 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { useDashboardData } from '@/hooks/useSupabaseData';
-import { useCRMDashboard } from '@/hooks/useCRMData';
+import { useCRMDashboard } from '@/hooks/useSupabaseData';
 import { useERPDashboard } from '@/hooks/useERPData';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
 import { useUserAnalytics } from '@/hooks/useUserAnalytics';
 import { StatusIndicator, ConnectionStatus, MultiServiceStatus } from '@/components/ui/StatusIndicator';
+
 
 // Función para obtener el componente de icono
 const getIconComponent = (iconName: string) => {

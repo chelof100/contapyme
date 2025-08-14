@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { useActividades, useClientes, useOportunidades } from '@/hooks/useCRMData';
+import { useActividades, useClientes, useOportunidades } from '@/hooks/useSupabaseData';
 import { useAuth } from '@/contexts/AuthContext';
 import { webhookService } from '@/services/webhookService';
 import { 

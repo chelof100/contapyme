@@ -27,7 +27,7 @@ interface User {
   username: string;
   first_name: string;
   last_name: string;
-  role: 'admin' | 'contador' | 'usuario';
+  role: 'admin' | 'contador' | 'usuario' | 'developer';
   empresa_id: string;
   created_at: string;
   last_login?: string;
@@ -71,9 +71,9 @@ const UsuariosAdmin = () => {
   };
 
   // Actualizar rol de usuario
-  const updateUserRole = async (userId: string, newRole: 'admin' | 'contador' | 'usuario') => {
-    if (userId === user?.id && newRole !== 'admin') {
-      toast.error('No puedes cambiar tu propio rol de administrador');
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'contador' | 'usuario' | 'developer') => {
+    if (userId === user?.id && newRole !== 'admin' && newRole !== 'developer') {
+      toast.error('No puedes cambiar tu propio rol de administrador o desarrollador');
       return;
     }
 
@@ -102,6 +102,7 @@ const UsuariosAdmin = () => {
   // Obtener badge de rol
   const getRoleBadge = (role: string) => {
     const styles = {
+      developer: 'bg-purple-100 text-purple-800',
       admin: 'bg-red-100 text-red-800',
       contador: 'bg-blue-100 text-blue-800',
       usuario: 'bg-gray-100 text-gray-800'
@@ -112,6 +113,7 @@ const UsuariosAdmin = () => {
   // Obtener permisos del rol
   const getRolePermissions = (role: string) => {
     const permissions = {
+      developer: ['Super Administrador', 'Configuración del sistema', 'Gestión completa', 'Acceso a base de datos', 'Gestión de API', 'Configuración avanzada'],
       admin: ['Gestión completa', 'Configuración del sistema', 'Gestión de usuarios'],
       contador: ['Ver todos los datos', 'Editar facturas', 'Reportes contables'],
       usuario: ['Ver sus propios datos', 'Crear facturas básicas']

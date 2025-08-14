@@ -37,7 +37,7 @@
     "react",
     "typescript"
   ],
-  "author": "OnePYME Team",
+  "author": "OnePyme Team",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -83,6 +83,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
+    "dotenv": "^17.2.1",
     "embla-carousel-react": "^8.3.0",
     "exceljs": "^4.4.0",
     "framer-motion": "^11.0.8",

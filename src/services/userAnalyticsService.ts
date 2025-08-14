@@ -2,18 +2,18 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface UserAction {
   id: string;
-  user_id: string;
+  usuario_id: string;
   action_type: 'page_view' | 'create' | 'edit' | 'delete' | 'export' | 'import';
   module: string;
   page: string;
-  timestamp: string;
+  created_at: string;
   session_id: string;
   metadata?: any;
 }
 
 export interface UserPreference {
   id: string;
-  user_id: string;
+  usuario_id: string;
   module: string;
   page: string;
   frequency: number;
@@ -54,11 +54,11 @@ class UserAnalyticsService {
       if (!user) return;
 
       const action: Omit<UserAction, 'id'> = {
-        user_id: user.id,
+        usuario_id: user.id,
         action_type: actionType,
         module,
         page,
-        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString(),
         session_id: this.sessionId,
         metadata
       };
@@ -88,9 +88,9 @@ class UserAnalyticsService {
       const { data: actions, error } = await supabase
         .from('user_actions')
         .select('*')
-        .eq('user_id', user.id)
-        .gte('timestamp', startDate.toISOString())
-        .order('timestamp', { ascending: false });
+        .eq('usuario_id', user.id)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -333,9 +333,9 @@ class UserAnalyticsService {
     try {
       const stats = await this.getUserStats(1); // Último día
       
-      return stats.recentActions.slice(0, limit).map(action => {
-        const timeAgo = this.getTimeAgo(action.timestamp);
-        const description = this.getActionDescription(action);
+             return stats.recentActions.slice(0, limit).map(action => {
+         const timeAgo = this.getTimeAgo(action.created_at);
+         const description = this.getActionDescription(action);
         
         return {
           type: action.module,
@@ -419,7 +419,7 @@ class UserAnalyticsService {
       await supabase
         .from('user_actions')
         .delete()
-        .lt('timestamp', cutoffDate.toISOString());
+        .lt('created_at', cutoffDate.toISOString());
     } catch (error) {
       console.error('Error cleaning up old data:', error);
     }

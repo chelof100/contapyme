@@ -81,10 +81,12 @@ const Auth = () => {
         return;
       }
 
-      console.log('Login successful, navigating to dashboard...');
-      console.log('Login successful, navigating to dashboard...');
+      console.log('✅ [Auth] Login successful, navigating to dashboard...');
       toast.success("¡Bienvenido! Has iniciado sesión correctamente");
+      setIsLoading(false);
+      console.log('🔄 [Auth] About to navigate to /dashboard...');
       navigate('/dashboard');
+      console.log('✅ [Auth] Navigation called');
       
     } catch (error) {
       console.error('Login exception:', error);
@@ -154,7 +156,13 @@ const Auth = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-primary">OnePYME</CardTitle>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/srcassets/OnePyme Logo.png" 
+              alt="OnePyme Logo" 
+              className="h-20 w-auto"
+            />
+          </div>
           <CardDescription>
             Sistema integral de gestión empresarial para PYMES
           </CardDescription>
@@ -192,7 +200,7 @@ const Auth = () => {
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors" 
                   disabled={isLoading}
                 >
                   {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
@@ -203,7 +211,7 @@ const Auth = () => {
               <div className="mt-4 text-center">
                 <a 
                   href="/admin-reset-password"
-                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline"
+                  className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 underline transition-colors"
                 >
                   <Key className="h-4 w-4" />
                   Resetear Password de Admin
@@ -294,7 +302,7 @@ const Auth = () => {
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full" 
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white transition-colors" 
                   disabled={isLoading || checkingEmpresa}
                 >
                   {isLoading ? 'Creando cuenta...' : checkingEmpresa ? 'Verificando empresa...' : 'Crear Cuenta'}

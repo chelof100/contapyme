@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { useClientes, useContactos, useInteracciones } from '@/hooks/useCRMData';
+import { useClientes, useContactos, useInteracciones } from '@/hooks/useSupabaseData';
 import { useFacturasEmitidas } from '@/hooks/useSupabaseData';
 import { webhookService } from '@/services/webhookService';
 import { 

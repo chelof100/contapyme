@@ -41,7 +41,13 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-blue-900">OnePYME</CardTitle>
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/srcassets/OnePyme Logo.png" 
+              alt="OnePyme Logo" 
+              className="h-12 w-auto"
+            />
+          </div>
           <CardDescription>
             Sistema integral de gestión empresarial para PYMES
           </CardDescription>
@@ -72,14 +78,14 @@ const Login = () => {
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-blue-600 hover:bg-blue-700" 
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-colors" 
               disabled={loading}
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
             </Button>
           </form>
-          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
+          <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-sm text-blue-900">
               <strong>Demo:</strong> admin@pyme.com / admin123
             </p>
           </div>

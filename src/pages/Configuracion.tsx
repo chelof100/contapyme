@@ -1555,7 +1555,7 @@ const Configuracion: React.FC = () => {
   "metadata": {
     "requestId": "uuid",
     "timestamp": "ISO string",
-            "source": "OnePYME-Frontend",
+            "source": "OnePyme-Frontend",
     "version": "1.0.0"
   }
 }`}

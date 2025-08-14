@@ -46,7 +46,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { healthStatus, history, loading, error, isRunning } = useHealthCheck();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<string[]>(['contabilidad', 'crm']);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['contabilidad', 'crm', 'admin']);
+
+  // Debug: Log admin status
+
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => 
@@ -105,6 +108,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: '📊 Monitoreo', href: '/monitoreo', icon: Activity }
   ];
 
+
+
   const isActive = (href: string) => {
     if (href === '/dashboard') {
       return location.pathname === '/dashboard';
@@ -129,7 +134,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="flex min-h-0 flex-1 flex-col bg-white shadow-lg">
           <div className="flex flex-1 flex-col overflow-y-auto pt-5 pb-4">
             <div className="flex flex-shrink-0 items-center px-4">
-              <h1 className="text-xl font-bold text-blue-900">OnePYME</h1>
+              <h1 className="text-xl font-bold text-blue-900">OnePyme</h1>
             </div>
             <div className="mt-5 flex-1 px-3">
               <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg">
@@ -163,7 +168,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <div className="flex items-center">
                               <item.icon
                                 className={`${
-                                  isSectionActive(item) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                                  isSectionActive(item) ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
                                 } mr-3 h-5 w-5 flex-shrink-0`}
                               />
                               {item.name}
@@ -180,15 +185,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                             <Link
                               key={child.name}
                               to={child.href}
-                              className={`${
+                                                                                            className={`${
                                 isActive(child.href)
-                                  ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-600'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                  ? 'bg-blue-600 text-white border-r-2 border-blue-800 shadow-sm'
+                                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                               } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
                             >
                               <child.icon
                                 className={`${
-                                  isActive(child.href) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                                  isActive(child.href) ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
                                 } mr-3 h-4 w-4 flex-shrink-0`}
                               />
                               {child.name}
@@ -201,13 +206,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                         to={item.href!}
                         className={`${
                           isActive(item.href!)
-                            ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-600'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                         } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
                       >
                         <item.icon
                           className={`${
-                            isActive(item.href!) ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500'
+                            isActive(item.href!) ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
                           } mr-3 h-5 w-5 flex-shrink-0`}
                         />
                         {item.name}
@@ -221,7 +226,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button
                 variant="ghost"
                 onClick={logout}
-                className="w-full justify-start text-gray-600 hover:text-gray-900"
+                className="w-full justify-start text-gray-600 hover:text-gray-900 hover:bg-blue-600 hover:text-white transition-colors"
               >
                 <LogOut className="mr-3 h-5 w-5" />
                 Cerrar Sesión
@@ -247,10 +252,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <div className="flex min-h-0 flex-1 flex-col pt-5 pb-4">
               <div className="flex flex-shrink-0 items-center px-4">
-                <h1 className="text-xl font-bold text-blue-900">OnePYME</h1>
+                <img 
+                  src="/srcassets/OnePyme Logo.png" 
+                  alt="OnePyme Logo" 
+                  className="h-8 w-auto"
+                />
               </div>
               <div className="mt-5 flex-1 px-3">
-                <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg">
+                <div className="mb-4 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200 shadow-sm">
                   <p className="text-sm font-medium text-blue-900">{user?.pyme_nombre}</p>
                   <p className="text-xs text-blue-600">{user?.email}</p>
                 </div>
@@ -269,9 +278,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                               onClick={() => setSidebarOpen(false)}
                               className={`${
                                 isActive(child.href)
-                                  ? 'bg-blue-100 text-blue-900'
-                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                              } group flex items-center px-2 py-2 text-sm font-medium rounded-md ml-4`}
+                                  ? 'bg-blue-600 text-white border-r-2 border-blue-800 shadow-sm'
+                                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                              } group flex items-center px-2 py-2 text-sm font-medium rounded-md ml-4 transition-colors`}
                             >
                               <child.icon className="mr-3 h-4 w-4 flex-shrink-0" />
                               {child.name}
@@ -284,9 +293,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                           onClick={() => setSidebarOpen(false)}
                           className={`${
                             isActive(item.href!)
-                              ? 'bg-blue-100 text-blue-900'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                          } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                              ? 'bg-blue-600 text-white border-r-2 border-blue-800 shadow-sm'
+                              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                          } group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors`}
                         >
                           <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                           {item.name}
@@ -314,10 +323,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Menu className="h-6 w-6" />
             </Button>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-semibold text-blue-900">OnePYME</h1>
+              <img 
+                src="/srcassets/OnePyme Logo.png" 
+                alt="OnePyme Logo" 
+                className="h-6 w-auto"
+              />
               <StatusIndicator
                 status={healthStatus ? 'healthy' : 'unknown'}
-                variant="dot"
+                variant="icon"
                 size="sm"
                 tooltip={
                   healthStatus 

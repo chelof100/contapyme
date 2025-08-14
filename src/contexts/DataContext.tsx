@@ -60,7 +60,15 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  // Verificación de seguridad para evitar errores durante hot reload
+  let user = null;
+  try {
+    const authContext = useAuth();
+    user = authContext.user;
+  } catch (error) {
+    console.warn('AuthProvider not ready yet, using fallback');
+    user = null;
+  }
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [pendingOperations, setPendingOperations] = useState<PendingOperation[]>([]);
@@ -94,10 +102,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
   // Detectar estado de conexión
   useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      testConnectionQuality();
-    };
+      const handleOnline = () => {
+    setIsOnline(true);
+    // testConnectionQuality(); // DESHABILITADO - Interfiere con Supabase queries
+  };
     const handleOffline = () => {
       setIsOnline(false);
       setConnectionQuality('offline');
@@ -108,7 +116,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Test inicial de calidad de conexión
     if (navigator.onLine) {
-      testConnectionQuality();
+      // testConnectionQuality(); // DESHABILITADO - Interfiere con Supabase queries
     }
     return () => {
       window.removeEventListener('online', handleOnline);

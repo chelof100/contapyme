@@ -637,3 +637,278 @@ export function useDashboardData() {
     refetch: fetchDashboardData
   };
 }
+
+// Hooks CRM
+export function useCRMDashboard() {
+  const { user, profile } = useAuth();
+  const [crmData, setCrmData] = useState({
+    clientes: { total: 0, activos: 0 },
+    oportunidades: { total: 0, abiertas: 0, valorTotal: 0 },
+    actividades: { total: 0, pendientes: 0, completadas: 0 },
+    loading: true
+  });
+
+  const fetchCRMData = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const [clientes, oportunidades, actividades] = await Promise.all([
+        supabase.from('clientes').select('id, activo').eq('empresa_id', profile.empresa_id),
+        supabase.from('oportunidades').select('id, estado, valor_estimado').eq('empresa_id', profile.empresa_id),
+        supabase.from('actividades').select('id, estado').eq('empresa_id', profile.empresa_id)
+      ]);
+
+      const clientesActivos = clientes.data?.filter(c => c.activo).length || 0;
+      const oportunidadesAbiertas = oportunidades.data?.filter(o => o.estado === 'abierta').length || 0;
+      const valorTotal = oportunidades.data?.reduce((sum, o) => sum + (o.valor_estimado || 0), 0) || 0;
+      const actividadesPendientes = actividades.data?.filter(a => a.estado === 'pendiente').length || 0;
+      const actividadesCompletadas = actividades.data?.filter(a => a.estado === 'completada').length || 0;
+
+      setCrmData({
+        clientes: {
+          total: clientes.data?.length || 0,
+          activos: clientesActivos
+        },
+        oportunidades: {
+          total: oportunidades.data?.length || 0,
+          abiertas: oportunidadesAbiertas,
+          valorTotal
+        },
+        actividades: {
+          total: actividades.data?.length || 0,
+          pendientes: actividadesPendientes,
+          completadas: actividadesCompletadas
+        },
+        loading: false
+      });
+    } catch (error) {
+      console.error('Error fetching CRM data:', error);
+      setCrmData(prev => ({ ...prev, loading: false }));
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchCRMData();
+  }, [fetchCRMData]);
+
+  return {
+    ...crmData,
+    refetch: fetchCRMData
+  };
+}
+
+export function useClientes() {
+  const { user, profile } = useAuth();
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchClientes = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setClientes(data || []);
+    } catch (error) {
+      console.error('Error fetching clientes:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchClientes();
+  }, [fetchClientes]);
+
+  return {
+    data: clientes,
+    loading,
+    total: clientes.length,
+    refetch: fetchClientes
+  };
+}
+
+export function useContactos() {
+  const { user, profile } = useAuth();
+  const [contactos, setContactos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchContactos = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('contactos')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setContactos(data || []);
+    } catch (error) {
+      console.error('Error fetching contactos:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchContactos();
+  }, [fetchContactos]);
+
+  return {
+    data: contactos,
+    loading,
+    total: contactos.length,
+    refetch: fetchContactos
+  };
+}
+
+export function useInteracciones() {
+  const { user, profile } = useAuth();
+  const [interacciones, setInteracciones] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchInteracciones = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('interacciones')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInteracciones(data || []);
+    } catch (error) {
+      console.error('Error fetching interacciones:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchInteracciones();
+  }, [fetchInteracciones]);
+
+  return {
+    data: interacciones,
+    loading,
+    total: interacciones.length,
+    refetch: fetchInteracciones
+  };
+}
+
+export function useOportunidades() {
+  const { user, profile } = useAuth();
+  const [oportunidades, setOportunidades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOportunidades = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('oportunidades')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setOportunidades(data || []);
+    } catch (error) {
+      console.error('Error fetching oportunidades:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchOportunidades();
+  }, [fetchOportunidades]);
+
+  return {
+    data: oportunidades,
+    loading,
+    total: oportunidades.length,
+    refetch: fetchOportunidades
+  };
+}
+
+export function useActividades() {
+  const { user, profile } = useAuth();
+  const [actividades, setActividades] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchActividades = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('actividades')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setActividades(data || []);
+    } catch (error) {
+      console.error('Error fetching actividades:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchActividades();
+  }, [fetchActividades]);
+
+  return {
+    data: actividades,
+    loading,
+    total: actividades.length,
+    refetch: fetchActividades
+  };
+}
+
+export function useEtapasPipeline() {
+  const { user, profile } = useAuth();
+  const [etapas, setEtapas] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchEtapas = useCallback(async () => {
+    if (!user || !profile?.empresa_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('etapas_pipeline')
+        .select('*')
+        .eq('empresa_id', profile.empresa_id)
+        .order('orden', { ascending: true });
+
+      if (error) throw error;
+      setEtapas(data || []);
+    } catch (error) {
+      console.error('Error fetching etapas pipeline:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id, profile?.empresa_id]);
+
+  useEffect(() => {
+    fetchEtapas();
+  }, [fetchEtapas]);
+
+  return {
+    data: etapas,
+    loading,
+    total: etapas.length,
+    refetch: fetchEtapas
+  };
+}

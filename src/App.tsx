@@ -28,6 +28,7 @@ import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import TestingDashboard from "./pages/TestingDashboard";
 import Monitoreo from "./pages/Monitoreo";
+
 import AdminResetPassword from "./pages/AdminResetPassword";
 
 const queryClient = new QueryClient();
