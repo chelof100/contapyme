@@ -13,14 +13,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, Download, Eye, Calendar, Filter, Settings, Mail, FileArchive, Send } from 'lucide-react';
-import { useFacturasEmitidas, useFacturasRecibidas, useProductos, useMovimientosStock, useFacturaProductos } from '@/hooks/useSupabaseData';
+import { useFacturas, useProductos } from '@/hooks/useSupabaseData';
 import { webhookService } from '@/services/webhookService';
 import FacturaForm from '@/components/facturas/FacturaForm';
 
 const Facturas = () => {
   const { user } = useAuth();
-  const { data: facturasEmitidas, loading: loadingEmitidas, create: createFacturaEmitida } = useFacturasEmitidas();
-  const { data: facturasRecibidas, loading: loadingRecibidas, create: createFacturaRecibida } = useFacturasRecibidas();
+  const { data: facturasEmitidas, loading: loadingEmitidas, create: createFacturaEmitida } = useFacturas();
+  const { data: facturasRecibidas, loading: loadingRecibidas, create: createFacturaRecibida } = useFacturas();
   const { data: productos, update: updateProducto } = useProductos();
   const { create: createMovimiento } = useMovimientosStock();
   const { create: createFacturaProducto } = useFacturaProductos();

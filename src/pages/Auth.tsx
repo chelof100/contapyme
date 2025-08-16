@@ -32,20 +32,26 @@ const Auth = () => {
     try {
       const { data, error } = await supabase
         .from('empresa')
-        .select('id, nombre')
-        .limit(1);
+        .select('id')
+        .limit(1)
+        .single();
 
       if (error) {
         console.error('Error checking empresa:', error);
         return false;
       }
 
-      return data && data.length > 0;
+      if (!data) {
+        console.error('Error checking empresa:', error);
+        return false;
+      }
+
+      setCheckingEmpresa(false);
+      return true;
     } catch (error) {
       console.error('Error checking empresa:', error);
-      return false;
-    } finally {
       setCheckingEmpresa(false);
+      return false;
     }
   };
 

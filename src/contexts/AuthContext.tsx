@@ -1,11 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Extended user interface for legacy compatibility
+// Extended user interface for single-tenant system
 interface ExtendedUser extends User {
-  pyme_id?: string;
   pyme_nombre?: string;
   permissions?: string[];
 }
@@ -16,7 +15,6 @@ interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-  empresa_id: string | null;
   role: 'admin' | 'contador' | 'usuario' | 'developer';
   avatar_url: string | null;
 }
@@ -52,73 +50,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // IMPORTANTE: Ref para evitar llamadas duplicadas
+  const profileFetchedRef = useRef<Set<string>>(new Set());
+  const isFetchingRef = useRef(false);
 
   const fetchProfile = async (userId: string) => {
+    // EVITAR LLAMADAS DUPLICADAS
+    if (profileFetchedRef.current.has(userId) || isFetchingRef.current) {
+      console.log('⚠️ Evitando llamada duplicada a fetchProfile para:', userId);
+      return profile; // Retornar el perfil actual si ya lo tenemos
+    }
+
+    isFetchingRef.current = true;
+    
     try {
-      // Timeout de 3 segundos para evitar cuelgues
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Query timeout after 3 seconds')), 3000);
-      });
+      console.log('🔍 [AuthContext] Fetching profile for user:', userId);
+      console.log('🔍 [AuthContext] About to make Supabase query...');
       
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle();
-      
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+        .single();
 
       if (error) {
         console.error('Error fetching profile:', error);
         return null;
       }
 
-      if (!data) {
-        return null;
-      }
-
+      // Marcar como obtenido
+      profileFetchedRef.current.add(userId);
+      
+      console.log('✅ [AuthContext] Profile fetched successfully:', data);
       return data;
     } catch (error) {
       console.error('Exception fetching profile:', error);
-      
-      // FALLBACK: Si la query falla por timeout, usar perfil mock para usuarios conocidos
-      if (error.message?.includes('timeout')) {
-        if (userId === 'e55b6657-5bb1-4b5c-a3f2-9a322b081cbf') {
-          console.log('🔄 Using fallback profile for developer');
-          return {
-            id: userId,
-            email: 'developer@onepyme.pro',
-            username: 'developer_onepyme',
-            first_name: 'Developer',
-            last_name: 'OnePYME',
-            empresa_id: '06e35346-7ca5-4c91-8f9a-1a8354b471c7',
-            role: 'developer' as const,
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            last_login: null
-          };
-        }
-        
-        if (userId === 'c9d7afed-8a6d-4c28-8bed-d27f779a2d24') {
-          console.log('🔄 Using fallback profile for admin');
-          return {
-            id: userId,
-            email: 'admin@onepyme.pro',
-            username: 'admin',
-            first_name: 'Admin',
-            last_name: 'OnePYME',
-            empresa_id: '06e35346-7ca5-4c91-8f9a-1a8354b471c7',
-            role: 'admin' as const,
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            last_login: null
-          };
-        }
-      }
-
       return null;
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
@@ -126,17 +96,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Creating profile for user:', userId, email);
       
-      // Buscar empresa existente en lugar de usar empresa_id hardcodeado
-      const { data: empresas, error: empresaError } = await supabase
+      // Verificar que existe configuración de empresa
+      const { data: configEmpresa, error: configError } = await supabase
         .from('empresa')
         .select('id, nombre')
         .limit(1)
         .single();
 
-      if (empresaError || !empresas) {
-        console.error('Error fetching empresa or no empresa exists:', empresaError);
+      if (configError || !configEmpresa) {
+        console.error('Error fetching empresa or no config exists:', configError);
         throw new Error('No hay empresa configurada en el sistema. Contacta al administrador.');
       }
+
+      console.log('✅ Empresa encontrada:', configEmpresa.nombre);
 
       const profileData = {
         id: userId,
@@ -144,11 +116,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         first_name: userData?.first_name || '',
         last_name: userData?.last_name || '',
         email: email,
-        empresa_id: empresas.id,
-        role: 'usuario' as const
+        role: 'developer' as const, // Usuario developer por defecto
+        avatar_url: null,
+        empresa_id: configEmpresa.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
 
-      console.log('Creating profile with data:', profileData);
+      console.log('Profile data to insert:', profileData);
 
       const { data, error } = await supabase
         .from('profiles')
@@ -158,98 +133,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('Error creating profile:', error);
-        return null;
+        throw error;
       }
 
-      console.log('Profile created successfully:', data);
+      console.log('✅ Profile created successfully:', data);
       return data;
     } catch (error) {
-      console.error('Error creating profile:', error);
-      return null;
+      console.error('Exception creating profile:', error);
+      throw error;
     }
   };
-   useEffect(() => {
+
+  useEffect(() => {
     let mounted = true;
 
-    // Set up auth state listener
+    // Setup auth listener - SIMPLIFICADO
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
         
-        setSession(session);
+        console.log('Auth state change:', event);
         
         if (session?.user) {
+          setSession(session);
           
-          // Create extended user with legacy properties
           const extendedUser: ExtendedUser = {
             ...session.user,
-            pyme_id: '',
-            pyme_nombre: '',
+            pyme_nombre: 'OnePyme',
             permissions: []
           };
           setUser(extendedUser);
           
-          // Fetch user profile immediately
-          try {
-            let profileData = await fetchProfile(session.user.id);
+          // SOLO buscar perfil si no lo tenemos
+          if (!profile || profile.id !== session.user.id) {
+            const profileData = await fetchProfile(session.user.id);
             
-            // Si no existe perfil y es un login nuevo, crearlo
-            if (!profileData && event === 'SIGNED_IN') {
-              console.log('Creating profile for new user...');
-              profileData = await createProfile(session.user.id, session.user.email!);
-              if (profileData) {
-                console.log('Profile created successfully');
-              }
-            }
-            
-            if (mounted) {
+            if (mounted && profileData) {
               setProfile(profileData);
               
-              if (profileData) {
-                console.log('✅ [AuthContext] Profile loaded successfully:', {
-                  empresa_id: profileData.empresa_id,
-                  role: profileData.role
-                });
-                
-                // Si el perfil no tiene empresa_id, usar el ID por defecto
-                if (!profileData.empresa_id) {
-                  console.log('⚠️ [AuthContext] Profile has no empresa_id, using default empresa...');
-                  profileData.empresa_id = '00000000-0000-0000-0000-000000000001';
-                }
-                
-                // Update user with profile data
-                const updatedUser: ExtendedUser = {
-                  ...extendedUser,
-                  pyme_id: profileData.empresa_id || '',
-                  pyme_nombre: 'OnePyme',
-                  permissions: getRolePermissions(profileData.role)
-                };
-                setUser(updatedUser);
-              } else {
-                // Si no hay perfil, usar valores por defecto
-                console.log('⚠️ [AuthContext] No profile found, using default user');
-                const defaultUser: ExtendedUser = {
-                  ...extendedUser,
-                  pyme_id: '00000000-0000-0000-0000-000000000001',
-                  pyme_nombre: 'OnePyme',
-                  permissions: ['view_own', 'edit_own']
-                };
-                setUser(defaultUser);
-              }
-              
-              // Siempre marcar como no cargando
-              setLoading(false);
-            }
-          } catch (error) {
-            console.error('Error in auth state change:', error);
-            if (mounted) {
-              setUser(null);
-              setProfile(null);
+              // Actualizar usuario con datos del perfil
+              const updatedUser: ExtendedUser = {
+                ...extendedUser,
+                pyme_nombre: 'OnePyme',
+                permissions: getRolePermissions(profileData.role)
+              };
+              setUser(updatedUser);
             }
           }
         } else {
+          setSession(null);
           setUser(null);
           setProfile(null);
+          profileFetchedRef.current.clear();
         }
         
         if (mounted) {
@@ -258,71 +193,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Check for existing session
+    // Check initial session - SOLO UNA VEZ
     const checkInitialSession = async () => {
       try {
-        console.log('🔍 [AuthContext] Checking initial session...');
         const { data: { session } } = await supabase.auth.getSession();
         
-        if (!mounted) return;
-        
-        console.log('🔍 [AuthContext] Initial session found:', !!session);
-        setSession(session);
-        
-        if (session?.user) {
-          console.log('🔍 [AuthContext] User in initial session:', session.user.email);
-          const extendedUser: ExtendedUser = {
-            ...session.user,
-            pyme_id: '',
-            pyme_nombre: 'OnePyme',
-            permissions: []
-          };
-          setUser(extendedUser);
-          
-          console.log('🔍 [AuthContext] Fetching profile for initial session...');
-          const profileData = await fetchProfile(session.user.id);
-          if (mounted) {
-            if (profileData) {
-              console.log('✅ [AuthContext] Initial profile loaded:', profileData);
-              // Si el perfil no tiene empresa_id, usar el ID por defecto
-              if (!profileData.empresa_id) {
-                profileData.empresa_id = '00000000-0000-0000-0000-000000000001';
-              }
-              
-              setProfile(profileData);
-              const updatedUser: ExtendedUser = {
-                ...extendedUser,
-                pyme_id: profileData.empresa_id || '',
-                pyme_nombre: 'OnePyme',
-                permissions: getRolePermissions(profileData.role)
-              };
-              setUser(updatedUser);
-            } else {
-              // Si no hay perfil, crear uno
-              console.log('⚠️ [AuthContext] No profile found in initial session, creating one...');
-              const newProfile = await createProfile(session.user.id, session.user.email || '');
-              if (newProfile) {
-                setProfile(newProfile);
-                const updatedUser: ExtendedUser = {
-                  ...extendedUser,
-                  pyme_id: newProfile.empresa_id || '',
-                  pyme_nombre: 'OnePyme',
-                  permissions: getRolePermissions(newProfile.role)
-                };
-                setUser(updatedUser);
-              }
-            }
-          }
-        } else {
-          console.log('🔍 [AuthContext] No user in initial session');
-          setUser(null);
-        }
-        
-        if (mounted) {
+        if (mounted && session?.user) {
+          // El onAuthStateChange manejará esto
+          console.log('Initial session found, letting onAuthStateChange handle it');
+        } else if (mounted) {
           setLoading(false);
         }
       } catch (error) {
-        console.error('❌ [AuthContext] Error checking initial session:', error);
+        console.error('Error checking initial session:', error);
         if (mounted) {
           setLoading(false);
         }
@@ -335,7 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, []); // DEPENDENCIAS VACÍAS - Solo ejecutar una vez
 
   const signUp = async (email: string, password: string, userData: { username: string; first_name: string; last_name: string }) => {
     console.log('Attempting signup for:', email);
@@ -383,7 +266,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { error };
     }
     
-    console.log('✅ [AuthContext] Signin successful for:', email);
+    if (data.user) {
+      console.log('✅ [AuthContext] Signin successful for:', email);
+      console.log('🔍 [AuthContext] User data received:', data.user.id);
+      
+      // Crear usuario extendido
+      const extendedUser: ExtendedUser = {
+        ...data.user,
+        pyme_nombre: 'OnePyme',
+        permissions: []
+      };
+      
+      // Fetch profile after successful login
+      const userProfile = await fetchProfile(data.user.id);
+      if (userProfile) {
+        console.log('✅ [AuthContext] Profile loaded after login:', userProfile);
+        
+        // Actualizar estado del contexto
+        setProfile(userProfile);
+        const updatedUser: ExtendedUser = {
+          ...extendedUser,
+          pyme_nombre: 'OnePyme',
+          permissions: getRolePermissions(userProfile.role)
+        };
+        setUser(updatedUser);
+        setSession(data.session);
+        
+        console.log('✅ [AuthContext] Context state updated with user and profile');
+      } else {
+        console.log('⚠️ [AuthContext] No profile found after login');
+        
+        // Si no hay perfil, crear uno
+        const newProfile = await createProfile(data.user.id, data.user.email || '');
+        if (newProfile) {
+          setProfile(newProfile);
+          const updatedUser: ExtendedUser = {
+            ...extendedUser,
+            pyme_nombre: 'OnePyme',
+            permissions: getRolePermissions(newProfile.role)
+          };
+          setUser(updatedUser);
+          setSession(data.session);
+          console.log('✅ [AuthContext] New profile created and context updated');
+        }
+      }
+    }
+    
     return { error: null };
   };
 
@@ -425,22 +353,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return user?.permissions?.includes(permission) || false;
   };
 
+  const value = {
+    user, 
+    profile, 
+    session, 
+    signUp, 
+    signIn, 
+    signOut, 
+    loading, 
+    hasRole, 
+    isAdmin,
+    // Legacy compatibility
+    login,
+    logout,
+    hasPermission
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      profile, 
-      session, 
-      signUp, 
-      signIn, 
-      signOut, 
-      loading, 
-      hasRole, 
-      isAdmin,
-      // Legacy compatibility
-      login,
-      logout,
-      hasPermission
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

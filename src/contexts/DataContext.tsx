@@ -406,13 +406,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Monitoreo de salud de conexión cada 5 minutos
   useEffect(() => {
-    const healthCheck = setInterval(() => {
-      if (isOnline) {
-        testConnectionQuality();
-      }
-    }, 5 * 60 * 1000);
+    // TEMPORALMENTE DESHABILITADO: Health checks de n8n interfieren con autenticación
+    // const healthCheck = setInterval(() => {
+    //   if (isOnline) {
+    //     testConnectionQuality();
+    //   }
+    // }, 5 * 60 * 1000);
 
-    return () => clearInterval(healthCheck);
+    // return () => clearInterval(healthCheck);
+    
+    // Por ahora, solo establecer conexión como offline para evitar errores
+    setConnectionQuality('offline');
   }, [isOnline]);
   return (
     <DataContext.Provider value={{

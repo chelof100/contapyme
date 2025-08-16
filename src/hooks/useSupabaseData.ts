@@ -3,37 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-interface UseSupabaseDataOptions {
-  enabled?: boolean;
-  refetchInterval?: number;
-  onSuccess?: (data: any) => void;
-  onError?: (error: string) => void;
-}
-
-interface QueryState<T> {
-  data: T[];
-  loading: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-  create: (data: Omit<T, 'id' | 'created_at' | 'updated_at'>) => Promise<T | null>;
-  update: (id: string, data: Partial<T>) => Promise<T | null>;
-  remove: (id: string) => Promise<boolean>;
-}
-
-export function useSupabaseData<T>(
-  table: string,
-  select: string = '*',
-  filters?: Record<string, any>,
-  options: UseSupabaseDataOptions = {}
-): QueryState<T> {
-  const { enabled = true, refetchInterval, onSuccess, onError } = options;
-  const [data, setData] = useState<T[]>([]);
+// Hook simple para cualquier tabla
+export function useTableData(tableName: string) {
+  const { user } = useAuth();
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
 
   const fetchData = useCallback(async () => {
-    if (!user || !enabled) {
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -42,377 +20,190 @@ export function useSupabaseData<T>(
       setLoading(true);
       setError(null);
       
-      let query = supabase.from(table).select(select);
-
-      // SIMPLE TENANT: No hay filtros automáticos por empresa_id
-      // Una sola empresa por instalación = no hay necesidad de filtrar
-
-      // Aplicar filtros adicionales si se especifican
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            if (Array.isArray(value)) {
-              query = query.in(key, value);
-            } else {
-              query = query.eq(key, value);
-            }
-          }
-        });
-      }
-
-      const { data: result, error: queryError } = await query.order('created_at', { ascending: false });
+      // Consulta simple sin order problemático
+      const { data: result, error: queryError } = await supabase
+        .from(tableName as any)
+        .select('*')
+        .limit(100); // Limitar resultados para evitar timeouts
 
       if (queryError) throw queryError;
 
-      const finalData = result || [];
-      setData(finalData);
-      
-      if (onSuccess) {
-        onSuccess(finalData);
-      }
+      setData(result || []);
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar datos';
+      const errorMessage = err instanceof Error ? err.message : `Error al cargar ${tableName}`;
       setError(errorMessage);
-      
-      if (onError) {
-        onError(errorMessage);
-      }
-      
-      console.error(`Error fetching ${table}:`, err);
+      console.error(`Error fetching ${tableName}:`, err);
     } finally {
       setLoading(false);
     }
-  }, [table, select, JSON.stringify(filters), user?.id, enabled]);
+  }, [user?.id, tableName]);
 
-  const create = useCallback(async (data: Omit<T, 'id' | 'created_at' | 'updated_at'>): Promise<T | null> => {
+  const create = useCallback(async (itemData: any) => {
     if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
-      // SIMPLE TENANT: No agregar empresa_id automáticamente
-      // Los datos se insertan tal como vienen
       const { data: result, error: insertError } = await supabase
-        .from(table)
-        .insert(data)
+        .from(tableName as any)
+        .insert(itemData)
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Actualizar datos locales
-      setData(prev => [result, ...prev]);
-      toast.success('Registro creado exitosamente');
-      
-      return result;
+      if (result) {
+        setData(prev => [result, ...prev]);
+        toast.success(`${tableName} creado exitosamente`);
+        return result;
+      }
+
+      return null;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear registro';
+      const errorMessage = err instanceof Error ? err.message : `Error al crear ${tableName}`;
       toast.error(errorMessage);
-      console.error(`Error creating ${table}:`, err);
+      console.error(`Error creating ${tableName}:`, err);
       return null;
     }
-  }, [table, user?.id]);
+  }, [user?.id, tableName]);
 
-  const update = useCallback(async (id: string, data: Partial<T>): Promise<T | null> => {
+  const update = useCallback(async (id: string, itemData: any) => {
     if (!user) {
       toast.error('Usuario no autenticado');
-      return false;
+      return null;
     }
 
     try {
-      // SIMPLE TENANT: No verificar empresa_id en updates
       const { data: result, error: updateError } = await supabase
-        .from(table)
-        .update(data)
+        .from(tableName as any)
+        .update(itemData)
         .eq('id', id)
         .select()
         .single();
 
       if (updateError) throw updateError;
 
-      // Actualizar datos locales
-      setData(prev => prev.map(item => 
-        (item as any).id === id ? result : item
-      ));
-      
-      toast.success('Registro actualizado exitosamente');
-      return result;
+      if (result) {
+        setData(prev => prev.map(item => 
+          item.id === id ? result : item
+        ));
+        toast.success(`${tableName} actualizado exitosamente`);
+        return result;
+      }
+
+      return null;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar registro';
+      const errorMessage = err instanceof Error ? err.message : `Error al actualizar ${tableName}`;
       toast.error(errorMessage);
-      console.error(`Error updating ${table}:`, err);
+      console.error(`Error updating ${tableName}:`, err);
       return null;
     }
-  }, [table, user?.id]);
+  }, [user?.id, tableName]);
 
-  const remove = useCallback(async (id: string): Promise<boolean> => {
+  const remove = useCallback(async (id: string) => {
     if (!user) {
       toast.error('Usuario no autenticado');
       return false;
     }
 
     try {
-      // SIMPLE TENANT: No verificar empresa_id en deletes
       const { error: deleteError } = await supabase
-        .from(table)
+        .from(tableName as any)
         .delete()
         .eq('id', id);
 
       if (deleteError) throw deleteError;
 
-      // Actualizar datos locales
-      setData(prev => prev.filter(item => (item as any).id !== id));
-      toast.success('Registro eliminado exitosamente');
-      
+      setData(prev => prev.filter(item => item.id !== id));
+      toast.success(`${tableName} eliminado exitosamente`);
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar registro';
+      const errorMessage = err instanceof Error ? err.message : `Error al eliminar ${tableName}`;
       toast.error(errorMessage);
-      console.error(`Error deleting ${table}:`, err);
+      console.error(`Error deleting ${tableName}:`, err);
       return false;
     }
-  }, [table, user?.id]);
+  }, [user?.id, tableName]);
+
+  const refetch = useCallback(async () => {
+    await fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     fetchData();
-
-    // Configurar refetch automático si se especifica
-    if (refetchInterval) {
-      const interval = setInterval(fetchData, refetchInterval);
-      return () => clearInterval(interval);
-    }
-  }, [fetchData, refetchInterval]);
+  }, [fetchData]);
 
   return {
     data,
     loading,
     error,
-    refetch: fetchData,
+    refetch,
     create,
     update,
     remove
   };
 }
 
-// Hook específico para facturas emitidas
-export function useFacturasEmitidas() {
-  return useSupabaseData<{
-    id: string;
-    numero_factura: string;
-    punto_venta: string;
-    tipo_comprobante: string;
-    cuit_cliente: string;
-    cliente_nombre: string;
-    fecha_emision: string;
-    fecha_vencimiento: string;
-    subtotal: number;
-    porcentaje_iva: number;
-    monto_iva: number;
-    total: number;
-    descripcion: string;
-    condicion_iva: string;
-    estado: string;
-    cae: string;
-    pdf_url: string;
-    observaciones: string;
-  }>('facturas_emitidas');
-}
+// Hooks específicos usando el hook genérico
+export const useUsers = () => useTableData('profiles');
+export const useClientes = () => useTableData('clientes');
+export const useProductos = () => useTableData('productos');
+export const useFacturas = () => useTableData('facturas');
+export const useFacturasEmitidas = () => useTableData('facturas_emitidas');
+export const useFacturasRecibidas = () => useTableData('facturas_recibidas');
+export const useMovimientosStock = () => useTableData('movimientos_stock');
+export const useAlertasStock = () => useTableData('alertas_stock');
+export const useRecetas = () => useTableData('recetas');
+export const usePagos = () => useTableData('pagos');
+export const useOrdenesCompra = () => useTableData('ordenes_compra');
+export const useProveedores = () => useTableData('proveedores');
+export const useEmpleados = () => useTableData('empleados');
+export const useProyectos = () => useTableData('proyectos');
+export const useOportunidades = () => useTableData('oportunidades');
+export const useActividades = () => useTableData('actividades');
+export const useCampanas = () => useTableData('campanas');
+export const useTareas = () => useTableData('tareas');
+export const usePresupuestos = () => useTableData('presupuestos');
+export const useCashFlowProyecciones = () => useTableData('cash_flow_proyecciones');
+export const useTransaccionesFinancieras = () => useTableData('transacciones_financieras');
+export const useTiempoTrabajado = () => useTableData('tiempo_trabajado');
+export const useIngredientesReceta = () => useTableData('ingredientes_receta');
+export const useVentasRecetas = () => useTableData('ventas_recetas');
+export const useOrdenCompraProductos = () => useTableData('orden_compra_productos');
+export const useEmpresa = () => useTableData('empresa');
+export const useContactos = () => useTableData('contactos');
+export const useInteracciones = () => useTableData('interacciones');
+export const useEtapasPipeline = () => useTableData('etapas_pipeline');
+export const useDashboardData = () => useTableData('dashboard_data');
+export const useCRMDashboard = () => useTableData('crm_dashboard');
+export const useERPDashboard = () => useTableData('erp_dashboard');
+export const useCashFlow = () => useTableData('cash_flow');
+export const useKPIs = () => useTableData('kpis');
+export const useEmpresas = () => useTableData('empresas');
+export const useAsistencia = () => useTableData('asistencia');
 
-// Hook específico para facturas recibidas
-export function useFacturasRecibidas() {
-  return useSupabaseData<{
-    id: string;
-    numero_factura: string;
-    cuit_proveedor: string;
-    proveedor_nombre: string;
-    fecha_recepcion: string;
-    fecha_vencimiento: string;
-    monto: number;
-    orden_compra_id: string;
-    estado: string;
-    pdf_url: string;
-    observaciones: string;
-  }>('facturas_recibidas');
-}
+// Hooks para contabilidad
+export const useCuentasContables = () => useTableData('cuentas_contables');
+export const useAsientosContables = () => useTableData('asientos_contables');
 
-// Hook específico para órdenes de compra
-export function useOrdenesCompra() {
-  return useSupabaseData<{
-    id: string;
-    numero_orden: string;
-    cuit_proveedor: string;
-    proveedor_nombre: string;
-    fecha_orden: string;
-    fecha_entrega_estimada: string;
-    total: number;
-    estado: string;
-    observaciones: string;
-  }>('ordenes_compra');
-}
+// Hooks para servicios
+export const useServicios = () => useTableData('servicios');
 
-// Hook específico para pagos
-export function usePagos() {
-  return useSupabaseData<{
-    id: string;
-    factura_id: string;
-    numero_factura: string;
-    tipo_factura: string;
-    monto: number;
-    metodo_pago: string;
-    transaccion_id: string;
-    fecha_pago: string;
-    estado: string;
-    notas: string;
-  }>('pagos');
-}
+// Hooks para logs del sistema
+export const useSystemLogs = () => useTableData('system_logs');
 
-// Hook específico para productos
-export function useProductos() {
-  return useSupabaseData<{
-    id: string;
-    empresa_id: string;
-    sku: string;
-    codigo: string;
-    nombre: string;
-    descripcion: string;
-    precio_costo: number;
-    precio_venta_sugerido: number;
-    precio_compra: number;
-    precio_venta: number;
-    stock_actual: number;
-    stock_minimo: number;
-    categoria: string;
-    proveedor_principal: string;
-    ubicacion: string;
-    unidad_medida: string;
-    activo: boolean;
-    created_at: string;
-    updated_at: string;
-  }>('productos');
-}
-
-// Hook específico para movimientos de stock
-export function useMovimientosStock() {
-  return useSupabaseData<{
-    id: string;
-    producto_id: string;
-    sku: string;
-    tipo_movimiento: string;
-    cantidad: number;
-    stock_anterior: number;
-    stock_nuevo: number;
-    tipo_egreso: string;
-    referencia: string;
-    observaciones: string;
-    usuario_id: string;
-  }>('movimientos_stock');
-}
-
-// Hook específico para alertas de stock
-export function useAlertasStock() {
-  return useSupabaseData<{
-    id: string;
-    producto_id: string;
-    sku: string;
-    descripcion: string;
-    stock_actual: number;
-    stock_minimo: number;
-    diferencia: number;
-    alerta_enviada: boolean;
-    fecha_alerta: string;
-  }>('alertas_stock', '*', { alerta_enviada: false });
-}
-
-// Hook específico para recetas
-export function useRecetas() {
-  return useSupabaseData<{
-    id: string;
-    id_producto_venta_final: string;
-    nombre_receta: string;
-    descripcion: string;
-    precio_venta_sugerido: number;
-    costo_total: number;
-    activa: boolean;
-  }>('recetas', '*', { activa: true });
-}
-
-// Hook específico para productos de facturas
+// Hook especial para factura_productos con filtro
 export function useFacturaProductos(facturaId?: string) {
-  return useSupabaseData<{
-    id: string;
-    factura_id: string;
-    empresa_id: string;
-    producto_id?: string;
-    sku: string;
-    nombre_producto: string;
-    cantidad: number;
-    precio_unitario: number;
-    subtotal: number;
-    descripcion?: string;
-    created_at: string;
-    updated_at: string;
-  }>('factura_productos', '*', facturaId ? { factura_id: facturaId } : undefined);
-}
-
-// Hook específico para usuarios
-export function useUsers() {
-  return useSupabaseData<{
-    id: string;
-    email: string;
-    empresa_id: string;
-    role: 'admin' | 'contador' | 'usuario';
-    is_active: boolean;
-    last_login: string;
-    login_attempts: number;
-    locked_until: string;
-    created_at: string;
-    updated_at: string;
-  }>('users');
-}
-
-// Hook específico para empresas (proveedores)
-export function useEmpresas() {
-  return useSupabaseData<{
-    id: string;
-    nombre: string;
-    razon_social: string | null;
-    nombre_fantasia: string | null;
-    cuit: string | null;
-    email: string | null;
-    telefono: string | null;
-    direccion: string | null;
-    ciudad: string | null;
-    provincia: string | null;
-    codigo_postal: string | null;
-    condicion_iva: string;
-    ingresos_brutos: string | null;
-    fecha_inicio_actividades: string | null;
-    logo_url: string | null;
-    activa: boolean;
-    created_at: string;
-    updated_at: string;
-  }>('empresas');
-}
-
-// Hook específico para empresa (cliente)
-export function useEmpresa() {
-  const { user, profile } = useAuth();
-  const [empresa, setEmpresa] = useState<any>(null);
+  const { user } = useAuth();
+  const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEmpresa = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!user) {
       setLoading(false);
-      return;
-    }
-
-    // Si no hay empresa_id válido, no hacer consulta
-    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
-      setLoading(false);
-      setEmpresa(null);
       return;
     }
 
@@ -420,495 +211,70 @@ export function useEmpresa() {
       setLoading(true);
       setError(null);
       
-      const { data, error: queryError } = await supabase
-        .from('empresa')
-        .select('*')
-        .eq('id', profile.empresa_id)
-        .single();
-
-      if (queryError) {
-        // Si la empresa no existe, limpiar el error y establecer empresa como null
-        if (queryError.code === 'PGRST116') {
-          console.log('⚠️ [useEmpresa] Empresa no encontrada, estableciendo como null');
-          setEmpresa(null);
-          setError(null);
-        } else {
-          throw queryError;
-        }
-      } else {
-        setEmpresa(data);
+      let query = supabase.from('factura_productos' as any).select('*');
+      
+      if (facturaId) {
+        query = query.eq('factura_id', facturaId);
       }
       
+      const { data: result, error: queryError } = await query.order('created_at', { ascending: false });
+
+      if (queryError) throw queryError;
+
+      setData(result || []);
+      
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar empresa';
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar productos de factura';
       setError(errorMessage);
-      console.error('Error fetching empresa:', err);
+      console.error('Error fetching factura productos:', err);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, profile?.empresa_id]);
+  }, [user?.id, facturaId]);
 
-  const updateEmpresa = useCallback(async (data: Partial<any>): Promise<any | null> => {
+  const create = useCallback(async (productoData: any) => {
     if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
-    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
-      toast.error('Usuario sin empresa asignada. Configure la empresa primero.');
-      return null;
-    }
-
     try {
-      const { data: result, error } = await supabase
-        .from('empresa')
-        .update(data)
-        .eq('id', profile.empresa_id)
+      const { data: result, error: insertError } = await supabase
+        .from('factura_productos' as any)
+        .insert(productoData)
         .select()
         .single();
 
-      if (error) {
-        // Si la empresa no existe, crear una nueva
-        if (error.code === 'PGRST116') {
-          console.log('⚠️ [useEmpresa] Empresa no encontrada, creando nueva empresa...');
-          
-          // Crear nueva empresa directamente
-          const { data: newEmpresa, error: createError } = await supabase
-            .from('empresa')
-            .insert({
-              ...data,
-              activa: true
-            })
-            .select()
-            .single();
+      if (insertError) throw insertError;
 
-          if (createError) throw createError;
-
-          setEmpresa(newEmpresa);
-          toast.success('Empresa creada correctamente');
-          return newEmpresa;
-        } else {
-          throw error;
-        }
+      if (result) {
+        setData(prev => [result, ...prev]);
+        toast.success('Producto de factura creado exitosamente');
+        return result;
       }
 
-      setEmpresa(result);
-      toast.success('Empresa actualizada correctamente');
-      return result;
-      
+      return null;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar empresa';
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear producto de factura';
       toast.error(errorMessage);
-      console.error('Error updating empresa:', err);
+      console.error('Error creating factura producto:', err);
       return null;
     }
-  }, [user?.id, profile?.empresa_id]);
+  }, [user?.id]);
 
-  // Nueva función para crear o asignar empresa automáticamente
-  const createOrUpdateEmpresa = useCallback(async (data: any): Promise<any | null> => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
-    }
-
-    try {
-      console.log('🔍 [useEmpresa] Creando/asignando empresa con datos:', data);
-      
-      // Usar siempre la función RPC (funciona para usuarios mock y reales)
-      const { data: result, error } = await supabase
-        .rpc('asignar_o_crear_empresa', {
-          datos_empresa: data,
-          usuario_id: user.id
-        });
-
-      if (error) {
-        console.error('❌ [useEmpresa] Error en RPC:', error);
-        throw error;
-      }
-
-      console.log('✅ [useEmpresa] Empresa asignada/creada:', result);
-
-      // Refetch empresa data
-      await fetchEmpresa();
-      
-      toast.success('Empresa configurada correctamente');
-      return result;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al configurar empresa';
-      toast.error(errorMessage);
-      console.error('Error creating/updating empresa:', err);
-      return null;
-    }
-  }, [user?.id, fetchEmpresa]);
+  const refetch = useCallback(async () => {
+    await fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
-    fetchEmpresa();
-  }, [fetchEmpresa]);
+    fetchData();
+  }, [fetchData]);
 
   return {
-    data: empresa,
+    data,
     loading,
     error,
-    refetch: fetchEmpresa,
-    update: updateEmpresa,
-    createOrUpdate: createOrUpdateEmpresa
-  };
-}
-
-// Hook para obtener datos del dashboard
-export function useDashboardData() {
-  const { user, profile } = useAuth();
-  const [dashboardData, setDashboardData] = useState({
-    facturas: { emitidas: 0, recibidas: 0, pendientes: 0, vencidas: 0 },
-    ordenes: { abiertas: 0, cerradas: 0 },
-    pagos: { total: 0, monto: 0 },
-    productos: { total: 0, stockBajo: 0 },
-    loading: true
-  });
-
-  const fetchDashboardData = useCallback(async () => {
-    if (!user) return;
-    
-    // Si no hay empresa_id válido, no hacer consultas
-    if (!profile?.empresa_id || profile.empresa_id === '00000000-0000-0000-0000-000000000001') {
-      setDashboardData(prev => ({ ...prev, loading: false }));
-      return;
-    }
-
-    try {
-      const [
-        facturasEmitidas,
-        facturasRecibidas,
-        ordenes,
-        pagos,
-        productos,
-        alertasStock
-      ] = await Promise.all([
-        supabase.from('facturas_emitidas').select('estado, total').eq('empresa_id', profile.empresa_id),
-        supabase.from('facturas_recibidas').select('estado, monto').eq('empresa_id', profile.empresa_id),
-        supabase.from('ordenes_compra').select('estado').eq('empresa_id', profile.empresa_id),
-        supabase.from('pagos').select('monto').eq('empresa_id', profile.empresa_id),
-        supabase.from('productos').select('id').eq('empresa_id', profile.empresa_id),
-        supabase.from('alertas_stock').select('id').eq('empresa_id', profile.empresa_id).eq('alerta_enviada', false)
-      ]);
-
-      const facturasPendientes = facturasEmitidas.data?.filter(f => f.estado === 'pendiente').length || 0;
-      const facturasVencidas = facturasEmitidas.data?.filter(f => f.estado === 'vencida').length || 0;
-      const ordenesAbiertas = ordenes.data?.filter(o => o.estado === 'abierta').length || 0;
-      const ordenesCerradas = ordenes.data?.filter(o => o.estado === 'cerrada').length || 0;
-      const totalPagos = pagos.data?.length || 0;
-      const montoPagos = pagos.data?.reduce((sum, p) => sum + (p.monto || 0), 0) || 0;
-
-      setDashboardData({
-        facturas: {
-          emitidas: facturasEmitidas.data?.length || 0,
-          recibidas: facturasRecibidas.data?.length || 0,
-          pendientes: facturasPendientes,
-          vencidas: facturasVencidas
-        },
-        ordenes: {
-          abiertas: ordenesAbiertas,
-          cerradas: ordenesCerradas
-        },
-        pagos: {
-          total: totalPagos,
-          monto: montoPagos
-        },
-        productos: {
-          total: productos.data?.length || 0,
-          stockBajo: alertasStock.data?.length || 0
-        },
-        loading: false
-      });
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setDashboardData(prev => ({ ...prev, loading: false }));
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
-
-  return {
-    ...dashboardData,
-    refetch: fetchDashboardData
-  };
-}
-
-// Hooks CRM
-export function useCRMDashboard() {
-  const { user, profile } = useAuth();
-  const [crmData, setCrmData] = useState({
-    clientes: { total: 0, activos: 0 },
-    oportunidades: { total: 0, abiertas: 0, valorTotal: 0 },
-    actividades: { total: 0, pendientes: 0, completadas: 0 },
-    loading: true
-  });
-
-  const fetchCRMData = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const [clientes, oportunidades, actividades] = await Promise.all([
-        supabase.from('clientes').select('id, activo').eq('empresa_id', profile.empresa_id),
-        supabase.from('oportunidades').select('id, estado, valor_estimado').eq('empresa_id', profile.empresa_id),
-        supabase.from('actividades').select('id, estado').eq('empresa_id', profile.empresa_id)
-      ]);
-
-      const clientesActivos = clientes.data?.filter(c => c.activo).length || 0;
-      const oportunidadesAbiertas = oportunidades.data?.filter(o => o.estado === 'abierta').length || 0;
-      const valorTotal = oportunidades.data?.reduce((sum, o) => sum + (o.valor_estimado || 0), 0) || 0;
-      const actividadesPendientes = actividades.data?.filter(a => a.estado === 'pendiente').length || 0;
-      const actividadesCompletadas = actividades.data?.filter(a => a.estado === 'completada').length || 0;
-
-      setCrmData({
-        clientes: {
-          total: clientes.data?.length || 0,
-          activos: clientesActivos
-        },
-        oportunidades: {
-          total: oportunidades.data?.length || 0,
-          abiertas: oportunidadesAbiertas,
-          valorTotal
-        },
-        actividades: {
-          total: actividades.data?.length || 0,
-          pendientes: actividadesPendientes,
-          completadas: actividadesCompletadas
-        },
-        loading: false
-      });
-    } catch (error) {
-      console.error('Error fetching CRM data:', error);
-      setCrmData(prev => ({ ...prev, loading: false }));
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchCRMData();
-  }, [fetchCRMData]);
-
-  return {
-    ...crmData,
-    refetch: fetchCRMData
-  };
-}
-
-export function useClientes() {
-  const { user, profile } = useAuth();
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchClientes = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setClientes(data || []);
-    } catch (error) {
-      console.error('Error fetching clientes:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchClientes();
-  }, [fetchClientes]);
-
-  return {
-    data: clientes,
-    loading,
-    total: clientes.length,
-    refetch: fetchClientes
-  };
-}
-
-export function useContactos() {
-  const { user, profile } = useAuth();
-  const [contactos, setContactos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchContactos = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('contactos')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setContactos(data || []);
-    } catch (error) {
-      console.error('Error fetching contactos:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchContactos();
-  }, [fetchContactos]);
-
-  return {
-    data: contactos,
-    loading,
-    total: contactos.length,
-    refetch: fetchContactos
-  };
-}
-
-export function useInteracciones() {
-  const { user, profile } = useAuth();
-  const [interacciones, setInteracciones] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchInteracciones = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('interacciones')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setInteracciones(data || []);
-    } catch (error) {
-      console.error('Error fetching interacciones:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchInteracciones();
-  }, [fetchInteracciones]);
-
-  return {
-    data: interacciones,
-    loading,
-    total: interacciones.length,
-    refetch: fetchInteracciones
-  };
-}
-
-export function useOportunidades() {
-  const { user, profile } = useAuth();
-  const [oportunidades, setOportunidades] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchOportunidades = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('oportunidades')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setOportunidades(data || []);
-    } catch (error) {
-      console.error('Error fetching oportunidades:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchOportunidades();
-  }, [fetchOportunidades]);
-
-  return {
-    data: oportunidades,
-    loading,
-    total: oportunidades.length,
-    refetch: fetchOportunidades
-  };
-}
-
-export function useActividades() {
-  const { user, profile } = useAuth();
-  const [actividades, setActividades] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchActividades = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('actividades')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setActividades(data || []);
-    } catch (error) {
-      console.error('Error fetching actividades:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchActividades();
-  }, [fetchActividades]);
-
-  return {
-    data: actividades,
-    loading,
-    total: actividades.length,
-    refetch: fetchActividades
-  };
-}
-
-export function useEtapasPipeline() {
-  const { user, profile } = useAuth();
-  const [etapas, setEtapas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchEtapas = useCallback(async () => {
-    if (!user || !profile?.empresa_id) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('etapas_pipeline')
-        .select('*')
-        .eq('empresa_id', profile.empresa_id)
-        .order('orden', { ascending: true });
-
-      if (error) throw error;
-      setEtapas(data || []);
-    } catch (error) {
-      console.error('Error fetching etapas pipeline:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, profile?.empresa_id]);
-
-  useEffect(() => {
-    fetchEtapas();
-  }, [fetchEtapas]);
-
-  return {
-    data: etapas,
-    loading,
-    total: etapas.length,
-    refetch: fetchEtapas
+    refetch,
+    create
   };
 }

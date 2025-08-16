@@ -314,7 +314,7 @@ const Configuracion: React.FC = () => {
     
     try {
       const { supabase } = await import('@/integrations/supabase/client');
-      const { data, error } = await supabase.from('empresas').select('count').limit(1);
+              const { data, error } = await supabase.from('empresa').select('count').limit(1);
       
       if (error) {
         throw new Error(error.message);

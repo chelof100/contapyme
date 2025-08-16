@@ -18,21 +18,10 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
 
   // Verificar si el usuario tiene permisos de desarrollador
   const hasDeveloperAccess = () => {
-    if (!user) return false;
+    if (!user || !profile) return false;
     
-    // Verificar si es el usuario developer del sistema
-    if (user.email === 'developer@onepyme.pro') return true;
-    
-    // Verificar si es el usuario admin del sistema (salvavidas)
-    if (user.email === 'admin@onepyme.pro') return true;
-    
-    // Verificar rol de administrador o desarrollador (para compatibilidad)
-    if (profile) {
-      const allowedRoles = ['admin', 'developer', 'super_admin'];
-      return allowedRoles.includes(profile.role?.toLowerCase() || '');
-    }
-    
-    return false;
+    // SOLO permitir acceso a usuarios con rol 'developer'
+    return profile.role?.toLowerCase() === 'developer';
   };
 
   // Verificar si el usuario está autenticado
@@ -47,13 +36,13 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
         </div>
         <CardTitle className="flex items-center justify-center gap-2">
           <Shield className="h-5 w-5" />
-          Acceso Restringido
+          Acceso Restringido - Solo Desarrollador
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">
-            Esta sección está protegida y requiere permisos especiales.
+            Esta sección está protegida y requiere permisos de DESARROLLADOR.
           </p>
           {!isAuthenticated ? (
             <div className="space-y-2">
@@ -69,10 +58,13 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
             <div className="space-y-2">
               <Badge variant="destructive" className="flex items-center gap-1 mx-auto w-fit">
                 <AlertTriangle className="h-3 w-3" />
-                Permisos insuficientes
+                Rol insuficiente
               </Badge>
               <p className="text-sm text-muted-foreground">
                 Tu rol actual ({profile?.role || 'sin rol'}) no tiene permisos para acceder a esta sección.
+              </p>
+              <p className="text-sm text-blue-600 font-medium">
+                Solo usuarios con rol 'developer' pueden acceder.
               </p>
             </div>
           )}
@@ -80,8 +72,8 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
 
         <div className="bg-muted p-4 rounded-lg">
           <h4 className="font-semibold mb-2 flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Sección de Desarrollador
+            <Code className="h-4 w-4" />
+            Sección de Desarrollador - Acceso Restringido
           </h4>
           <ul className="text-sm text-muted-foreground space-y-1">
             <li>• Configuración de webhooks n8n</li>
@@ -89,12 +81,16 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
             <li>• Gestión de API keys</li>
             <li>• Logs del sistema</li>
             <li>• Configuraciones avanzadas</li>
+            <li>• Configuración del usuario admin</li>
           </ul>
         </div>
 
         <div className="text-center">
           <p className="text-xs text-muted-foreground">
-            Contacta al administrador del sistema si necesitas acceso a esta sección.
+            Esta sección solo es accesible para usuarios con rol 'developer'.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Contacta al desarrollador del sistema si necesitas acceso a esta sección.
           </p>
         </div>
       </CardContent>
@@ -106,7 +102,7 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
     return fallback || <DefaultFallback />;
   }
 
-  // Si tiene permisos, mostrar el contenido protegido
+  // Si tiene permisos de developer, mostrar el contenido protegido
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -115,7 +111,7 @@ const DeveloperConfigGuard: React.FC<DeveloperConfigGuardProps> = ({
           <h2 className="text-xl font-semibold">Configuración de Desarrollador</h2>
           <Badge variant="secondary" className="flex items-center gap-1">
             <Shield className="h-3 w-3" />
-            Protegido
+            Solo Developer
           </Badge>
         </div>
         <div className="text-sm text-muted-foreground">
