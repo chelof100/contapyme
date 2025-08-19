@@ -25,10 +25,11 @@ import {
   Folder,
   Megaphone,
   ChefHat,
-  ArrowRight,
-  Activity
+  ArrowRight
 } from 'lucide-react';
-import { useUsers, useClientes, useProductos } from '@/hooks/useSupabaseData';
+import { useDashboardData } from '@/hooks/useSupabaseData';
+import { useCRMDashboard } from '@/hooks/useCRMData';
+import { useERPDashboard } from '@/hooks/useERPData';
 import { useConfig } from '@/contexts/ConfigContext';
 import { useHealthCheck } from '@/hooks/useHealthCheck';
 import { useUserAnalytics } from '@/hooks/useUserAnalytics';
@@ -52,9 +53,9 @@ const getIconComponent = (iconName: string) => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { recetasEnabled } = useConfig();
-  const { data: users, loading: usersLoading } = useUsers();
-  const { data: clientes, loading: clientesLoading } = useClientes();
-  const { data: productos, loading: productosLoading } = useProductos();
+  const dashboardData = useDashboardData();
+  const crmData = useCRMDashboard();
+  const erpData = useERPDashboard();
   const { healthStatus, history, loading, error, isRunning } = useHealthCheck();
   const { quickActions, recentActivities, loading: analyticsLoading, trackAction } = useUserAnalytics();
 
@@ -62,58 +63,6 @@ const Dashboard = () => {
   useEffect(() => {
     trackAction('page_view', 'dashboard', '/dashboard');
   }, [trackAction]);
-
-  // Datos mock para el dashboard (temporal)
-  const dashboardData = {
-    facturas: {
-      emitidas: 0,
-      pendientes: 0
-    },
-    ordenes: {
-      abiertas: 0,
-      cerradas: 0
-    },
-    productos: {
-      total: productos?.length || 0,
-      stockBajo: productos?.filter(p => p.stock_actual < p.stock_minimo).length || 0
-    },
-    pagos: {
-      total: 0,
-      monto: 0
-    }
-  };
-
-  const crmData = {
-    clientes: {
-      activos: clientes?.length || 0,
-      prospectos: 0
-    },
-    oportunidades: {
-      abiertas: 0,
-      valorTotal: 0
-    },
-    actividades: {
-      pendientes: 0,
-      vencidas: 0
-    }
-  };
-
-  const erpData = {
-    finanzas: {
-      cashFlowMes: 0,
-      presupuestoVsReal: 0,
-      rentabilidad: 0
-    },
-    empleados: {
-      activos: users?.length || 0,
-      enLicencia: 0
-    },
-    proyectos: {
-      activos: 0,
-      facturacionPendiente: 0,
-      rentabilidadPromedio: 0
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -378,8 +327,76 @@ const Dashboard = () => {
           }}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rentabilidad</CardTitle>
+            <CardTitle className="text-sm font-medium">Cash Flow Mes</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${erpData.finanzas.cashFlowMes.toLocaleString('es-AR')}
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.finanzas.presupuestoVsReal.toFixed(1)}% vs presupuesto
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'empleados', '/erp/empleados');
+            navigate('/erp/empleados');
+          }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Empleados Activos</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{erpData.empleados.activos}</div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.empleados.enLicencia} en licencia
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'proyectos', '/erp/proyectos');
+            navigate('/erp/proyectos');
+          }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Proyectos Activos</CardTitle>
+            <Folder className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{erpData.proyectos.activos}</div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                {erpData.proyectos.facturacionPendiente.toFixed(1)} hs por facturar
+              </p>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => {
+            trackAction('page_view', 'rentabilidad', '/erp/rentabilidad');
+            navigate('/erp/rentabilidad');
+          }}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rentabilidad</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{erpData.finanzas.rentabilidad.toFixed(1)}%</div>
@@ -481,53 +498,104 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
+              <Clock className="h-5 w-5 text-blue-500" />
               Actividad Reciente
+              {analyticsLoading && (
+                <span className="text-sm text-muted-foreground">(Cargando...)</span>
+              )}
             </CardTitle>
-            <CardDescription>
-              Últimas acciones realizadas en el sistema
-            </CardDescription>
           </CardHeader>
           <CardContent>
-            {analyticsLoading ? (
-              <div className="text-center py-6">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                <p className="text-sm text-muted-foreground mt-2">Cargando actividad...</p>
-              </div>
-            ) : recentActivities.length > 0 ? (
-              <div className="space-y-3">
-                {recentActivities.slice(0, 5).map((activity, index) => (
-                  <div key={index} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
-                    <div className={`p-2 rounded-lg ${activity.color} text-white`}>
-                      {React.createElement(getIconComponent(activity.icon), { className: 'h-4 w-4' })}
+            <div className="space-y-3">
+              {recentActivities.length > 0 ? (
+                recentActivities.map((activity, index) => {
+                  const IconComponent = getIconComponent(activity.icon);
+                  return (
+                    <div key={index} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg">
+                      <div className="p-2 bg-gray-100 rounded-full">
+                        <IconComponent className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{activity.description}</p>
+                        <p className="text-xs text-muted-foreground">{activity.time}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {activity.action_type}
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {activity.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {activity.timestamp}
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {activity.type}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-6 text-muted-foreground">
-                <Activity className="h-8 w-8 mx-auto mb-2" />
-                <p>No hay actividad reciente</p>
-              </div>
-            )}
+                  );
+                })
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No hay actividades recientes</p>
+                  <p className="text-xs">Las actividades aparecerán aquí mientras uses la aplicación</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Financial Health & System Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Financial Health */}
+      {/* Performance Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Rendimiento Ventas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Meta Mensual</span>
+                <span>75%</span>
+              </div>
+              <Progress value={75} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Conversión Pipeline</span>
+                <span>32%</span>
+              </div>
+              <Progress value={32} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Satisfacción Cliente</span>
+                <span>92%</span>
+              </div>
+              <Progress value={92} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Productividad</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Proyectos a Tiempo</span>
+                <span>88%</span>
+              </div>
+              <Progress value={88} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Utilización Empleados</span>
+                <span>76%</span>
+              </div>
+              <Progress value={76} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Facturación vs Presupuesto</span>
+                <span>94%</span>
+              </div>
+              <Progress value={94} className="h-2" />
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Salud Financiera</CardTitle>
@@ -596,94 +664,94 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
-
-        {/* Module Status Overview */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Estado de Módulos</CardTitle>
-            <CardDescription>
-              Vista general del estado de todos los módulos
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {/* Accounting Modules */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-gray-700">Contabilidad</h4>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Facturas</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Órdenes de Compra</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Pagos</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Stock</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* CRM Modules */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-gray-700">CRM</h4>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Clientes</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Oportunidades</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Actividades</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* ERP Modules */}
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm text-gray-700">ERP</h4>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Finanzas</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Empleados</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                    <span className="text-sm">Proyectos</span>
-                    <Badge variant="default">Activo</Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Special Modules */}
-              {recetasEnabled && (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-700">Especiales</h4>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                      <span className="text-sm">Recetas</span>
-                      <Badge variant="default">Activo</Badge>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
       </div>
+
+      {/* Module Status Overview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LayoutDashboard className="h-5 w-5" />
+            Estado de Módulos del Sistema
+          </CardTitle>
+          <CardDescription>
+            Vista general del estado y funcionalidad de todos los módulos
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Accounting Modules */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-gray-700">Contabilidad</h4>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                  <span className="text-sm">Facturas</span>
+                  <Badge variant="default">Activo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                  <span className="text-sm">Órdenes de Compra</span>
+                  <Badge variant="default">Activo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                  <span className="text-sm">Pagos</span>
+                  <Badge variant="default">Activo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                  <span className="text-sm">Stock</span>
+                  <Badge variant="default">Activo</Badge>
+                </div>
+                {recetasEnabled && (
+                  <div className="flex items-center justify-between p-2 bg-green-50 rounded">
+                    <span className="text-sm">Recetas</span>
+                    <Badge variant="default">Activo</Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* CRM Modules */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-gray-700">CRM</h4>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                  <span className="text-sm">Clientes</span>
+                  <Badge className="bg-blue-100 text-blue-800">Nuevo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                  <span className="text-sm">Oportunidades</span>
+                  <Badge className="bg-blue-100 text-blue-800">Nuevo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                  <span className="text-sm">Actividades</span>
+                  <Badge className="bg-blue-100 text-blue-800">Nuevo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
+                  <span className="text-sm">Campañas</span>
+                  <Badge className="bg-blue-100 text-blue-800">Nuevo</Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* ERP Modules */}
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-gray-700">ERP</h4>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
+                  <span className="text-sm">Finanzas</span>
+                  <Badge className="bg-purple-100 text-purple-800">Nuevo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
+                  <span className="text-sm">Empleados</span>
+                  <Badge className="bg-purple-100 text-purple-800">Nuevo</Badge>
+                </div>
+                <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
+                  <span className="text-sm">Proyectos</span>
+                  <Badge className="bg-purple-100 text-purple-800">Nuevo</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

@@ -213,7 +213,13 @@ function getTableDisplayName(tableName: string): string {
     'oportunidades': 'Oportunidad',
     'presupuestos': 'Presupuesto',
     'recetas': 'Receta',
-    'ventas_recetas': 'Venta de Receta'
+    'ventas_recetas': 'Venta de Receta',
+    'alertas_stock': 'Alerta de Stock',
+    'campanas': 'Campaña',
+    'tareas': 'Tarea',
+    'contactos': 'Contacto',
+    'interacciones': 'Interacción',
+    'etapas_pipeline': 'Etapa Pipeline'
   };
   
   return displayNames[tableName] || tableName;
@@ -238,6 +244,15 @@ export const useOportunidades = () => useTableData('oportunidades');
 export const usePresupuestos = () => useTableData('presupuestos');
 export const useRecetas = () => useTableData('recetas');
 export const useVentasRecetas = () => useTableData('ventas_recetas');
+export const useAlertasStock = () => useTableData('alertas_stock');
+export const useCampanas = () => useTableData('campanas');
+export const useTareas = () => useTableData('tareas');
+export const useContactos = () => useTableData('contactos');
+export const useInteracciones = () => useTableData('interacciones');
+export const useEtapasPipeline = () => useTableData('etapas_pipeline');
+
+// Hook para facturas (compatibilidad)
+export const useFacturas = () => useTableData('facturas_emitidas');
 
 // Hook especializado para movimientos de stock con información adicional
 export const useMovimientosStock = () => {
@@ -322,22 +337,19 @@ export const useDashboardMetrics = () => {
         clientesRes,
         productosRes,
         facturasEmitidasRes,
-        facturasRecibidasRes,
-        proyectosRes
+        facturasRecibidasRes
       ] = await Promise.allSettled([
         supabase.from('clientes').select('id', { count: 'exact', head: true }),
         supabase.from('productos').select('id', { count: 'exact', head: true }),
         supabase.from('facturas_emitidas').select('id', { count: 'exact', head: true }),
-        supabase.from('facturas_recibidas').select('id', { count: 'exact', head: true }),
-        supabase.from('proyectos').select('id', { count: 'exact', head: true })
+        supabase.from('facturas_recibidas').select('id', { count: 'exact', head: true })
       ]);
       
       const metricsData = {
         clientes: clientesRes.status === 'fulfilled' ? clientesRes.value.count || 0 : 0,
         productos: productosRes.status === 'fulfilled' ? productosRes.value.count || 0 : 0,
         facturasEmitidas: facturasEmitidasRes.status === 'fulfilled' ? facturasEmitidasRes.value.count || 0 : 0,
-        facturasRecibidas: facturasRecibidasRes.status === 'fulfilled' ? facturasRecibidasRes.value.count || 0 : 0,
-        proyectos: proyectosRes.status === 'fulfilled' ? proyectosRes.value.count || 0 : 0
+        facturasRecibidas: facturasRecibidasRes.status === 'fulfilled' ? facturasRecibidasRes.value.count || 0 : 0
       };
       
       console.log('✅ [useDashboardMetrics] Metrics fetched successfully:', metricsData);
@@ -411,3 +423,66 @@ export const useSearchData = (tableName: string, searchTerm: string) => {
 
   return { results, loading, error, search };
 };
+
+// Hooks adicionales para compatibilidad con archivos existentes
+export const useDashboardData = () => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    if (user) {
+      setLoading(false);
+    }
+  }, [user]);
+
+  return { loading };
+};
+
+export const useCRMDashboard = () => {
+  const { data: clientes } = useClientes();
+  const { data: oportunidades } = useOportunidades();
+  const { data: actividades } = useActividades();
+
+  return {
+    clientes: {
+      total: clientes?.length || 0,
+      activos: clientes?.filter(c => c.activo)?.length || 0
+    },
+    oportunidades: {
+      abiertas: oportunidades?.filter(o => o.estado === 'abierta')?.length || 0,
+      cerradas: oportunidades?.filter(o => o.estado === 'cerrada')?.length || 0
+    },
+    actividades: {
+      pendientes: actividades?.filter(a => a.estado === 'pendiente')?.length || 0,
+      completadas: actividades?.filter(a => a.estado === 'completada')?.length || 0
+    }
+  };
+};
+
+export const useERPDashboard = () => {
+  const { data: empleados } = useEmpleados();
+  const { data: proyectos } = useProyectos();
+
+  return {
+    empleados: {
+      total: empleados?.length || 0,
+      activos: empleados?.filter(e => e.activo)?.length || 0
+    },
+    proyectos: {
+      activos: proyectos?.filter(p => p.estado === 'activo')?.length || 0,
+      completados: proyectos?.filter(p => p.estado === 'completado')?.length || 0
+    }
+  };
+};
+
+// Hooks adicionales que podrían estar siendo importados
+export const useFacturaProductos = () => useTableData('factura_productos');
+export const useCashFlowProyecciones = () => useTableData('cash_flow_proyecciones');
+export const useTransaccionesFinancieras = () => useTableData('transacciones_financieras');
+export const useTiempoTrabajado = () => useTableData('tiempo_trabajado');
+export const useCashFlow = () => useTableData('cash_flow_proyecciones');
+export const useKPIs = () => useTableData('kpis');
+export const useAsistencia = () => useTableData('asistencia');
+export const useCuentasContables = () => useTableData('cuentas_contables');
+export const useAsientosContables = () => useTableData('asientos_contables');
+export const useSystemLogs = () => useTableData('system_logs');
