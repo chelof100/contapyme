@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -50,45 +50,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // IMPORTANTE: Ref para evitar llamadas duplicadas
-  const profileFetchedRef = useRef<Set<string>>(new Set());
-  const isFetchingRef = useRef(false);
 
-  const fetchProfile = async (userId: string) => {
-    // EVITAR LLAMADAS DUPLICADAS
-    if (profileFetchedRef.current.has(userId) || isFetchingRef.current) {
-      console.log('⚠️ Evitando llamada duplicada a fetchProfile para:', userId);
-      return profile; // Retornar el perfil actual si ya lo tenemos
-    }
-
-    isFetchingRef.current = true;
-    
+  const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       console.log('🔍 [AuthContext] Fetching profile for user:', userId);
-      console.log('🔍 [AuthContext] About to make Supabase query...');
+      console.log('🔍 [AuthContext] Using RPC function...');
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
+      // Usar RPC en lugar de consulta directa
+      const { data, error } = await (supabase as any)
+        .rpc('get_profile_data', { user_id: userId })
         .single();
 
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('❌ Error fetching profile:', error);
         return null;
       }
 
-      // Marcar como obtenido
-      profileFetchedRef.current.add(userId);
-      
-      console.log('✅ [AuthContext] Profile fetched successfully:', data);
-      return data;
-    } catch (error) {
-      console.error('Exception fetching profile:', error);
+      if (data) {
+        console.log('✅ [AuthContext] Profile fetched successfully via RPC:', data);
+        return data;
+      }
+
+      console.log('⚠️ [AuthContext] No profile found');
       return null;
-    } finally {
-      isFetchingRef.current = false;
+    } catch (error) {
+      console.error('❌ Exception fetching profile:', error);
+      return null;
     }
   };
 
@@ -147,7 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    // Setup auth listener - SIMPLIFICADO
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
@@ -164,27 +150,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(extendedUser);
           
-          // SOLO buscar perfil si no lo tenemos
-          if (!profile || profile.id !== session.user.id) {
-            const profileData = await fetchProfile(session.user.id);
-            
-            if (mounted && profileData) {
-              setProfile(profileData);
-              
-              // Actualizar usuario con datos del perfil
-              const updatedUser: ExtendedUser = {
-                ...extendedUser,
-                pyme_nombre: 'OnePyme',
-                permissions: getRolePermissions(profileData.role)
-              };
-              setUser(updatedUser);
-            }
-          }
+          // NO buscar perfil aquí - el signIn lo manejará
+          // Solo manejar el estado de sesión
         } else {
           setSession(null);
           setUser(null);
           setProfile(null);
-          profileFetchedRef.current.clear();
         }
         
         if (mounted) {
@@ -193,32 +164,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Check initial session - SOLO UNA VEZ
-    const checkInitialSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (mounted && session?.user) {
-          // El onAuthStateChange manejará esto
-          console.log('Initial session found, letting onAuthStateChange handle it');
-        } else if (mounted) {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error checking initial session:', error);
-        if (mounted) {
-          setLoading(false);
-        }
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      
+      if (!session) {
+        setLoading(false);
       }
-    };
-
-    checkInitialSession();
+      // Si hay sesión, el onAuthStateChange la manejará
+    });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []); // DEPENDENCIAS VACÍAS - Solo ejecutar una vez
+  }, []);
 
   const signUp = async (email: string, password: string, userData: { username: string; first_name: string; last_name: string }) => {
     console.log('Attempting signup for:', email);
@@ -248,71 +208,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     console.log('🔍 [AuthContext] Attempting signin for:', email);
+    setLoading(true);
     
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    if (error) {
-      console.error('❌ [AuthContext] Signin error:', error);
-      if (error.message.includes('Invalid login credentials')) {
-        toast.error('Email o contraseña incorrectos');
-      } else if (error.message.includes('Email not confirmed')) {
-        toast.error('Debes confirmar tu email antes de iniciar sesión');
-      } else {
-        toast.error(`Error de autenticación: ${error.message}`);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (error) {
+        console.error('❌ [AuthContext] Signin error:', error);
+        toast.error(error.message);
+        setLoading(false);
+        return { error };
       }
-      return { error };
-    }
-    
-    if (data.user) {
-      console.log('✅ [AuthContext] Signin successful for:', email);
-      console.log('🔍 [AuthContext] User data received:', data.user.id);
       
-      // Crear usuario extendido
-      const extendedUser: ExtendedUser = {
-        ...data.user,
-        pyme_nombre: 'OnePyme',
-        permissions: []
-      };
-      
-      // Fetch profile after successful login
-      const userProfile = await fetchProfile(data.user.id);
-      if (userProfile) {
-        console.log('✅ [AuthContext] Profile loaded after login:', userProfile);
+      if (data.user) {
+        console.log('✅ [AuthContext] Signin successful for:', email);
+        console.log('🔍 [AuthContext] User data received:', data.user.id);
         
-        // Actualizar estado del contexto
-        setProfile(userProfile);
-        const updatedUser: ExtendedUser = {
-          ...extendedUser,
-          pyme_nombre: 'OnePyme',
-          permissions: getRolePermissions(userProfile.role)
-        };
-        setUser(updatedUser);
-        setSession(data.session);
+        // Buscar perfil del usuario (UNA SOLA VEZ - solo aquí se ejecuta)
+        const userProfile = await fetchProfile(data.user.id);
         
-        console.log('✅ [AuthContext] Context state updated with user and profile');
-      } else {
-        console.log('⚠️ [AuthContext] No profile found after login');
-        
-        // Si no hay perfil, crear uno
-        const newProfile = await createProfile(data.user.id, data.user.email || '');
-        if (newProfile) {
-          setProfile(newProfile);
-          const updatedUser: ExtendedUser = {
-            ...extendedUser,
+        if (userProfile) {
+          console.log('✅ [AuthContext] Profile found after login:', userProfile);
+          setProfile(userProfile);
+          
+          // Actualizar usuario con datos del perfil
+          const extendedUser: ExtendedUser = {
+            ...data.user,
             pyme_nombre: 'OnePyme',
-            permissions: getRolePermissions(newProfile.role)
+            permissions: getRolePermissions(userProfile.role)
           };
-          setUser(updatedUser);
+          setUser(extendedUser);
           setSession(data.session);
-          console.log('✅ [AuthContext] New profile created and context updated');
+          
+          console.log('✅ [AuthContext] Context state updated successfully');
+        } else {
+          console.log('⚠️ [AuthContext] No profile found, creating one...');
+          
+          try {
+            const newProfile = await createProfile(data.user.id, data.user.email || '');
+            if (newProfile) {
+              setProfile(newProfile);
+              const extendedUser: ExtendedUser = {
+                ...data.user,
+                pyme_nombre: 'OnePyme',
+                permissions: getRolePermissions(newProfile.role)
+              };
+              setUser(extendedUser);
+              setSession(data.session);
+              console.log('✅ [AuthContext] New profile created successfully');
+            }
+          } catch (createError) {
+            // Si el error es 409, significa que el perfil ya existe
+            // Intentar obtenerlo de nuevo
+            console.log('⚠️ Profile might already exist, trying to fetch again...');
+            const existingProfile = await fetchProfile(data.user.id);
+            if (existingProfile) {
+              setProfile(existingProfile);
+              const extendedUser: ExtendedUser = {
+                ...data.user,
+                pyme_nombre: 'OnePyme',
+                permissions: getRolePermissions(existingProfile.role)
+              };
+              setUser(extendedUser);
+              setSession(data.session);
+              console.log('✅ [AuthContext] Existing profile loaded successfully');
+            }
+          }
         }
       }
+      
+      setLoading(false);
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Exception during signin:', error);
+      setLoading(false);
+      return { error };
     }
-    
-    return { error: null };
   };
 
   const signOut = async () => {

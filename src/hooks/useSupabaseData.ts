@@ -150,10 +150,238 @@ export function useTableData(tableName: string) {
 export const useUsers = () => useTableData('profiles');
 export const useClientes = () => useTableData('clientes');
 export const useProductos = () => useTableData('productos');
-export const useFacturas = () => useTableData('facturas');
+// Hook para facturas usando función RPC
+export const useFacturas = () => {
+  const { user } = useAuth();
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: result, error: queryError } = await (supabase as any)
+        .rpc('get_facturas_data');
+
+      if (queryError) throw queryError;
+      setData(result || []);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar facturas';
+      setError(errorMessage);
+      console.error('Error fetching facturas:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const create = useCallback(async (facturaData: any) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    try {
+      const { data: result, error: insertError } = await (supabase as any)
+        .from('facturas')
+        .insert(facturaData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      await fetchData(); // Recargar datos
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear factura';
+      toast.error(errorMessage);
+      console.error('Error creating factura:', err);
+      return null;
+    }
+  }, [user?.id, fetchData]);
+
+  const update = useCallback(async (id: string, updates: any) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    try {
+      const { data: result, error: updateError } = await (supabase as any)
+        .from('facturas')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      await fetchData(); // Recargar datos
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar factura';
+      toast.error(errorMessage);
+      console.error('Error updating factura:', err);
+      return null;
+    }
+  }, [user?.id, fetchData]);
+
+  const remove = useCallback(async (id: string) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return false;
+    }
+
+    try {
+      const { error: deleteError } = await (supabase as any)
+        .from('facturas')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+      await fetchData(); // Recargar datos
+      toast.success('Factura eliminada exitosamente');
+      return true;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar factura';
+      toast.error(errorMessage);
+      console.error('Error deleting factura:', err);
+      return false;
+    }
+  }, [user?.id, fetchData]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, create, update, remove, refetch: fetchData };
+};
+
 export const useFacturasEmitidas = () => useTableData('facturas_emitidas');
 export const useFacturasRecibidas = () => useTableData('facturas_recibidas');
-export const useMovimientosStock = () => useTableData('movimientos_stock');
+
+// Hook para movimientos de stock usando función RPC
+export const useMovimientosStock = () => {
+  const { user } = useAuth();
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: result, error: queryError } = await (supabase as any)
+        .rpc('get_movimientos_stock_data');
+
+      if (queryError) throw queryError;
+      setData(result || []);
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al cargar movimientos de stock';
+      setError(errorMessage);
+      console.error('Error fetching movimientos stock:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  const create = useCallback(async (movimientoData: any) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    try {
+      const { data: result, error: insertError } = await supabase
+        .from('movimientos_stock')
+        .insert(movimientoData)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      await fetchData(); // Recargar datos
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al crear movimiento de stock';
+      toast.error(errorMessage);
+      console.error('Error creating movimiento stock:', err);
+      return null;
+    }
+  }, [user?.id, fetchData]);
+
+  const update = useCallback(async (id: string, updates: any) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return null;
+    }
+
+    try {
+      const { data: result, error: updateError } = await supabase
+        .from('movimientos_stock')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      await fetchData(); // Recargar datos
+      return result;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar movimiento de stock';
+      toast.error(errorMessage);
+      console.error('Error updating movimiento stock:', err);
+      return null;
+    }
+  }, [user?.id, fetchData]);
+
+  const remove = useCallback(async (id: string) => {
+    if (!user) {
+      toast.error('Usuario no autenticado');
+      return false;
+    }
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('movimientos_stock')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+      await fetchData(); // Recargar datos
+      toast.success('Movimiento de stock eliminado exitosamente');
+      return true;
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar movimiento de stock';
+      toast.error(errorMessage);
+      console.error('Error deleting movimiento stock:', err);
+      return false;
+    }
+  }, [user?.id, fetchData]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, create, update, remove, refetch: fetchData };
+};
 export const useAlertasStock = () => useTableData('alertas_stock');
 export const useRecetas = () => useTableData('recetas');
 export const usePagos = () => useTableData('pagos');
@@ -211,16 +439,11 @@ export function useFacturaProductos(facturaId?: string) {
       setLoading(true);
       setError(null);
       
-      let query = supabase.from('factura_productos' as any).select('*');
-      
-      if (facturaId) {
-        query = query.eq('factura_id', facturaId);
-      }
-      
-      const { data: result, error: queryError } = await query.order('created_at', { ascending: false });
+      // Usar función RPC para evitar problemas de RLS
+      const { data: result, error: queryError } = await (supabase as any)
+        .rpc('get_factura_productos_data', { factura_id_param: facturaId || null });
 
       if (queryError) throw queryError;
-
       setData(result || []);
       
     } catch (err) {

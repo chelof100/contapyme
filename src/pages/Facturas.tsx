@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { FileText, Download, Eye, Calendar, Filter, Settings, Mail, FileArchive, Send } from 'lucide-react';
-import { useFacturas, useProductos } from '@/hooks/useSupabaseData';
+import { useFacturas, useProductos, useMovimientosStock, useFacturaProductos } from '@/hooks/useSupabaseData';
 import { webhookService } from '@/services/webhookService';
 import FacturaForm from '@/components/facturas/FacturaForm';
 

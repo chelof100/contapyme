@@ -55,12 +55,15 @@ class UserAnalyticsService {
 
       const action: Omit<UserAction, 'id'> = {
         usuario_id: user.id,
-        action_type: actionType,
-        module,
-        page,
-        created_at: new Date().toISOString(),
-        session_id: this.sessionId,
-        metadata
+        accion: actionType, // ✅ Campo correcto: 'accion' no 'action_type'
+        tabla_afectada: module, // ✅ Campo correcto: 'tabla_afectada' no 'module'
+        registro_id: null, // ✅ Campo correcto: 'registro_id' (null por ahora)
+        detalles: { // ✅ Campo correcto: 'detalles' no 'metadata'
+          page,
+          session_id: this.sessionId,
+          metadata
+        },
+        created_at: new Date().toISOString()
       };
 
       await supabase.from('user_actions').insert(action);
