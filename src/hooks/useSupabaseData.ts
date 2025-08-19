@@ -3,15 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
-// Hook simple para cualquier tabla
-export function useTableData(tableName: string) {
+// Hook genérico OPTIMIZADO - Sin RPC, solo consultas directas
+function useTableData(tableName: string) {
   const { user } = useAuth();
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    // No hacer nada si no hay usuario autenticado
     if (!user) {
+      setData([]);
       setLoading(false);
       return;
     }
@@ -20,84 +22,122 @@ export function useTableData(tableName: string) {
       setLoading(true);
       setError(null);
       
-      // Consulta simple sin order problemático
-      const { data: result, error: queryError } = await supabase
+      console.log(`🔍 [useTableData] Fetching data from ${tableName}...`);
+      
+      // CONSULTA DIRECTA OPTIMIZADA con orden por fecha
+      const query = supabase
         .from(tableName as any)
-        .select('*')
-        .limit(100); // Limitar resultados para evitar timeouts
+        .select('*');
 
-      if (queryError) throw queryError;
+      // Agregar orden por created_at si la tabla lo tiene, sino por id
+      let { data: result, error: queryError } = await query
+        .order('created_at', { ascending: false, nullsFirst: false });
 
+      // Si falla con created_at, intentar con updated_at
+      if (queryError) {
+        const { data: result2, error: queryError2 } = await query
+          .order('updated_at', { ascending: false, nullsFirst: false });
+        
+        if (queryError2) {
+          // Si falla con updated_at, usar id
+          const { data: result3, error: queryError3 } = await query.order('id', { ascending: false });
+          result = result3;
+          queryError = queryError3;
+        } else {
+          result = result2;
+          queryError = queryError2;
+        }
+      }
+
+      if (queryError) {
+        console.error(`❌ [useTableData] Error fetching ${tableName}:`, queryError);
+        throw queryError;
+      }
+      
+      console.log(`✅ [useTableData] Successfully fetched ${result?.length || 0} records from ${tableName}`);
       setData(result || []);
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Error al cargar ${tableName}`;
+    } catch (err: any) {
+      const errorMessage = err.message || `Error al cargar ${tableName}`;
       setError(errorMessage);
       console.error(`Error fetching ${tableName}:`, err);
+      
+      // Solo mostrar toast para errores no relacionados con permisos
+      if (!errorMessage.includes('permission') && 
+          !errorMessage.includes('RLS') && 
+          !errorMessage.includes('policy')) {
+        toast.error(`Error cargando ${tableName}: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
   }, [user?.id, tableName]);
 
-  const create = useCallback(async (itemData: any) => {
+  const create = useCallback(async (newData: any) => {
     if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
+      console.log(`🔍 [useTableData] Creating record in ${tableName}...`);
+      
       const { data: result, error: insertError } = await supabase
         .from(tableName as any)
-        .insert(itemData)
+        .insert(newData)
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      if (result) {
-        setData(prev => [result, ...prev]);
-        toast.success(`${tableName} creado exitosamente`);
-        return result;
-      }
-
-      return null;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Error al crear ${tableName}`;
-      toast.error(errorMessage);
+      console.log(`✅ [useTableData] Record created in ${tableName}:`, (result as any)?.id);
+      
+      // Actualizar estado local
+      setData(prev => [result, ...prev]);
+      toast.success(`${getTableDisplayName(tableName)} creado exitosamente`);
+      return result;
+    } catch (err: any) {
+      const errorMessage = err.message || `Error al crear ${tableName}`;
       console.error(`Error creating ${tableName}:`, err);
+      toast.error(`Error creando ${getTableDisplayName(tableName)}: ${errorMessage}`);
       return null;
     }
   }, [user?.id, tableName]);
 
-  const update = useCallback(async (id: string, itemData: any) => {
+  const update = useCallback(async (id: string, updates: any) => {
     if (!user) {
       toast.error('Usuario no autenticado');
       return null;
     }
 
     try {
+      console.log(`🔍 [useTableData] Updating record ${id} in ${tableName}...`);
+      
       const { data: result, error: updateError } = await supabase
         .from(tableName as any)
-        .update(itemData)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
 
       if (updateError) throw updateError;
 
+      console.log(`✅ [useTableData] Record updated in ${tableName}:`, (result as any)?.id);
+      
+      // Actualizar estado local
       if (result) {
         setData(prev => prev.map(item => 
           item.id === id ? result : item
         ));
-        toast.success(`${tableName} actualizado exitosamente`);
+        toast.success(`${getTableDisplayName(tableName)} actualizado exitosamente`);
         return result;
       }
 
       return null;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Error al actualizar ${tableName}`;
-      toast.error(errorMessage);
+    } catch (err: any) {
+      const errorMessage = err.message || `Error al actualizar ${tableName}`;
       console.error(`Error updating ${tableName}:`, err);
+      toast.error(`Error actualizando ${getTableDisplayName(tableName)}: ${errorMessage}`);
       return null;
     }
   }, [user?.id, tableName]);
@@ -109,6 +149,8 @@ export function useTableData(tableName: string) {
     }
 
     try {
+      console.log(`🔍 [useTableData] Deleting record ${id} from ${tableName}...`);
+      
       const { error: deleteError } = await supabase
         .from(tableName as any)
         .delete()
@@ -116,13 +158,16 @@ export function useTableData(tableName: string) {
 
       if (deleteError) throw deleteError;
 
+      console.log(`✅ [useTableData] Record deleted from ${tableName}:`, id);
+      
+      // Actualizar estado local
       setData(prev => prev.filter(item => item.id !== id));
-      toast.success(`${tableName} eliminado exitosamente`);
+      toast.success(`${getTableDisplayName(tableName)} eliminado exitosamente`);
       return true;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : `Error al eliminar ${tableName}`;
-      toast.error(errorMessage);
+    } catch (err: any) {
+      const errorMessage = err.message || `Error al eliminar ${tableName}`;
       console.error(`Error deleting ${tableName}:`, err);
+      toast.error(`Error eliminando ${getTableDisplayName(tableName)}: ${errorMessage}`);
       return false;
     }
   }, [user?.id, tableName]);
@@ -131,6 +176,7 @@ export function useTableData(tableName: string) {
     await fetchData();
   }, [fetchData]);
 
+  // Efecto simple sin dependencias problemáticas
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -146,129 +192,54 @@ export function useTableData(tableName: string) {
   };
 }
 
-// Hooks específicos usando el hook genérico
+// Función helper para nombres de display
+function getTableDisplayName(tableName: string): string {
+  const displayNames: Record<string, string> = {
+    'profiles': 'Usuario',
+    'clientes': 'Cliente',
+    'productos': 'Producto',
+    'proveedores': 'Proveedor',
+    'facturas_emitidas': 'Factura Emitida',
+    'facturas_recibidas': 'Factura Recibida',
+    'ordenes_compra': 'Orden de Compra',
+    'pagos': 'Pago',
+    'proyectos': 'Proyecto',
+    'empleados': 'Empleado',
+    'empresa': 'Empresa',
+    'servicios': 'Servicio',
+    'inventario': 'Producto de Inventario',
+    'movimientos_stock': 'Movimiento de Stock',
+    'actividades': 'Actividad',
+    'oportunidades': 'Oportunidad',
+    'presupuestos': 'Presupuesto',
+    'recetas': 'Receta',
+    'ventas_recetas': 'Venta de Receta'
+  };
+  
+  return displayNames[tableName] || tableName;
+}
+
+// HOOKS ESPECÍFICOS OPTIMIZADOS
 export const useUsers = () => useTableData('profiles');
 export const useClientes = () => useTableData('clientes');
 export const useProductos = () => useTableData('productos');
-// Hook para facturas usando función RPC
-export const useFacturas = () => {
-  const { user } = useAuth();
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { data: result, error: queryError } = await (supabase as any)
-        .rpc('get_facturas_data');
-
-      if (queryError) throw queryError;
-      setData(result || []);
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar facturas';
-      setError(errorMessage);
-      console.error('Error fetching facturas:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  const create = useCallback(async (facturaData: any) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
-    }
-
-    try {
-      const { data: result, error: insertError } = await (supabase as any)
-        .from('facturas')
-        .insert(facturaData)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-      await fetchData(); // Recargar datos
-      return result;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear factura';
-      toast.error(errorMessage);
-      console.error('Error creating factura:', err);
-      return null;
-    }
-  }, [user?.id, fetchData]);
-
-  const update = useCallback(async (id: string, updates: any) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
-    }
-
-    try {
-      const { data: result, error: updateError } = await (supabase as any)
-        .from('facturas')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-      await fetchData(); // Recargar datos
-      return result;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar factura';
-      toast.error(errorMessage);
-      console.error('Error updating factura:', err);
-      return null;
-    }
-  }, [user?.id, fetchData]);
-
-  const remove = useCallback(async (id: string) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return false;
-    }
-
-    try {
-      const { error: deleteError } = await (supabase as any)
-        .from('facturas')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-      await fetchData(); // Recargar datos
-      toast.success('Factura eliminada exitosamente');
-      return true;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar factura';
-      toast.error(errorMessage);
-      console.error('Error deleting factura:', err);
-      return false;
-    }
-  }, [user?.id, fetchData]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, create, update, remove, refetch: fetchData };
-};
-
+export const useProveedores = () => useTableData('proveedores');
 export const useFacturasEmitidas = () => useTableData('facturas_emitidas');
 export const useFacturasRecibidas = () => useTableData('facturas_recibidas');
+export const useOrdenesCompra = () => useTableData('ordenes_compra');
+export const usePagos = () => useTableData('pagos');
+export const useProyectos = () => useTableData('proyectos');
+export const useEmpleados = () => useTableData('empleados');
+export const useEmpresa = () => useTableData('empresa');
+export const useServicios = () => useTableData('servicios');
+export const useInventario = () => useTableData('inventario');
+export const useActividades = () => useTableData('actividades');
+export const useOportunidades = () => useTableData('oportunidades');
+export const usePresupuestos = () => useTableData('presupuestos');
+export const useRecetas = () => useTableData('recetas');
+export const useVentasRecetas = () => useTableData('ventas_recetas');
 
-// Hook para movimientos de stock usando función RPC
+// Hook especializado para movimientos de stock con información adicional
 export const useMovimientosStock = () => {
   const { user } = useAuth();
   const [data, setData] = useState<any[]>([]);
@@ -277,6 +248,7 @@ export const useMovimientosStock = () => {
 
   const fetchData = useCallback(async () => {
     if (!user) {
+      setData([]);
       setLoading(false);
       return;
     }
@@ -285,152 +257,56 @@ export const useMovimientosStock = () => {
       setLoading(true);
       setError(null);
       
-      const { data: result, error: queryError } = await (supabase as any)
-        .rpc('get_movimientos_stock_data');
+      console.log('🔍 [useMovimientosStock] Fetching stock movements with product info...');
+      
+      // Consulta con JOIN para obtener información del producto
+      const { data: result, error: queryError } = await supabase
+        .from('movimientos_stock')
+        .select(`
+          *,
+          productos:producto_id (
+            nombre,
+            descripcion,
+            codigo
+          )
+        `)
+        .order('created_at', { ascending: false });
 
       if (queryError) throw queryError;
+      
+      console.log(`✅ [useMovimientosStock] Successfully fetched ${result?.length || 0} movements`);
       setData(result || []);
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar movimientos de stock';
+    } catch (err: any) {
+      const errorMessage = err.message || 'Error al cargar movimientos de stock';
       setError(errorMessage);
-      console.error('Error fetching movimientos stock:', err);
+      console.error('Error fetching movimientos_stock:', err);
+      
+      if (!errorMessage.includes('permission')) {
+        toast.error(`Error cargando movimientos: ${errorMessage}`);
+      }
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
-  const create = useCallback(async (movimientoData: any) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
-    }
-
-    try {
-      const { data: result, error: insertError } = await supabase
-        .from('movimientos_stock')
-        .insert(movimientoData)
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
-      await fetchData(); // Recargar datos
-      return result;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear movimiento de stock';
-      toast.error(errorMessage);
-      console.error('Error creating movimiento stock:', err);
-      return null;
-    }
-  }, [user?.id, fetchData]);
-
-  const update = useCallback(async (id: string, updates: any) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
-    }
-
-    try {
-      const { data: result, error: updateError } = await supabase
-        .from('movimientos_stock')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-      await fetchData(); // Recargar datos
-      return result;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al actualizar movimiento de stock';
-      toast.error(errorMessage);
-      console.error('Error updating movimiento stock:', err);
-      return null;
-    }
-  }, [user?.id, fetchData]);
-
-  const remove = useCallback(async (id: string) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return false;
-    }
-
-    try {
-      const { error: deleteError } = await supabase
-        .from('movimientos_stock')
-        .delete()
-        .eq('id', id);
-
-      if (deleteError) throw deleteError;
-      await fetchData(); // Recargar datos
-      toast.success('Movimiento de stock eliminado exitosamente');
-      return true;
-      
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al eliminar movimiento de stock';
-      toast.error(errorMessage);
-      console.error('Error deleting movimiento stock:', err);
-      return false;
-    }
-  }, [user?.id, fetchData]);
-
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, create, update, remove, refetch: fetchData };
+  return { data, loading, error, refetch: fetchData };
 };
-export const useAlertasStock = () => useTableData('alertas_stock');
-export const useRecetas = () => useTableData('recetas');
-export const usePagos = () => useTableData('pagos');
-export const useOrdenesCompra = () => useTableData('ordenes_compra');
-export const useProveedores = () => useTableData('proveedores');
-export const useEmpleados = () => useTableData('empleados');
-export const useProyectos = () => useTableData('proyectos');
-export const useOportunidades = () => useTableData('oportunidades');
-export const useActividades = () => useTableData('actividades');
-export const useCampanas = () => useTableData('campanas');
-export const useTareas = () => useTableData('tareas');
-export const usePresupuestos = () => useTableData('presupuestos');
-export const useCashFlowProyecciones = () => useTableData('cash_flow_proyecciones');
-export const useTransaccionesFinancieras = () => useTableData('transacciones_financieras');
-export const useTiempoTrabajado = () => useTableData('tiempo_trabajado');
-export const useIngredientesReceta = () => useTableData('ingredientes_receta');
-export const useVentasRecetas = () => useTableData('ventas_recetas');
-export const useOrdenCompraProductos = () => useTableData('orden_compra_productos');
-export const useEmpresa = () => useTableData('empresa');
-export const useContactos = () => useTableData('contactos');
-export const useInteracciones = () => useTableData('interacciones');
-export const useEtapasPipeline = () => useTableData('etapas_pipeline');
-export const useDashboardData = () => useTableData('dashboard_data');
-export const useCRMDashboard = () => useTableData('crm_dashboard');
-export const useERPDashboard = () => useTableData('erp_dashboard');
-export const useCashFlow = () => useTableData('cash_flow');
-export const useKPIs = () => useTableData('kpis');
-export const useEmpresas = () => useTableData('empresas');
-export const useAsistencia = () => useTableData('asistencia');
 
-// Hooks para contabilidad
-export const useCuentasContables = () => useTableData('cuentas_contables');
-export const useAsientosContables = () => useTableData('asientos_contables');
-
-// Hooks para servicios
-export const useServicios = () => useTableData('servicios');
-
-// Hooks para logs del sistema
-export const useSystemLogs = () => useTableData('system_logs');
-
-// Hook especial para factura_productos con filtro
-export function useFacturaProductos(facturaId?: string) {
+// Hook especializado para dashboard con métricas
+export const useDashboardMetrics = () => {
   const { user } = useAuth();
-  const [data, setData] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!user) {
+      setMetrics({});
       setLoading(false);
       return;
     }
@@ -439,65 +315,99 @@ export function useFacturaProductos(facturaId?: string) {
       setLoading(true);
       setError(null);
       
-      // Usar función RPC para evitar problemas de RLS
-      const { data: result, error: queryError } = await (supabase as any)
-        .rpc('get_factura_productos_data', { factura_id_param: facturaId || null });
-
-      if (queryError) throw queryError;
-      setData(result || []);
+      console.log('🔍 [useDashboardMetrics] Fetching dashboard metrics...');
       
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al cargar productos de factura';
+      // Obtener métricas básicas de diferentes tablas
+      const [
+        clientesRes,
+        productosRes,
+        facturasEmitidasRes,
+        facturasRecibidasRes,
+        proyectosRes
+      ] = await Promise.allSettled([
+        supabase.from('clientes').select('id', { count: 'exact', head: true }),
+        supabase.from('productos').select('id', { count: 'exact', head: true }),
+        supabase.from('facturas_emitidas').select('id', { count: 'exact', head: true }),
+        supabase.from('facturas_recibidas').select('id', { count: 'exact', head: true }),
+        supabase.from('proyectos').select('id', { count: 'exact', head: true })
+      ]);
+      
+      const metricsData = {
+        clientes: clientesRes.status === 'fulfilled' ? clientesRes.value.count || 0 : 0,
+        productos: productosRes.status === 'fulfilled' ? productosRes.value.count || 0 : 0,
+        facturasEmitidas: facturasEmitidasRes.status === 'fulfilled' ? facturasEmitidasRes.value.count || 0 : 0,
+        facturasRecibidas: facturasRecibidasRes.status === 'fulfilled' ? facturasRecibidasRes.value.count || 0 : 0,
+        proyectos: proyectosRes.status === 'fulfilled' ? proyectosRes.value.count || 0 : 0
+      };
+      
+      console.log('✅ [useDashboardMetrics] Metrics fetched successfully:', metricsData);
+      setMetrics(metricsData);
+      
+    } catch (err: any) {
+      const errorMessage = err.message || 'Error al cargar métricas del dashboard';
       setError(errorMessage);
-      console.error('Error fetching factura productos:', err);
+      console.error('Error fetching dashboard metrics:', err);
+      toast.error(`Error cargando métricas: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
-  }, [user?.id, facturaId]);
+  }, [user?.id]);
 
-  const create = useCallback(async (productoData: any) => {
-    if (!user) {
-      toast.error('Usuario no autenticado');
-      return null;
+  useEffect(() => {
+    fetchMetrics();
+  }, [fetchMetrics]);
+
+  return { metrics, loading, error, refetch: fetchMetrics };
+};
+
+// Hook para búsqueda avanzada
+export const useSearchData = (tableName: string, searchTerm: string) => {
+  const { user } = useAuth();
+  const [results, setResults] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const search = useCallback(async () => {
+    if (!user || !searchTerm.trim()) {
+      setResults([]);
+      setLoading(false);
+      return;
     }
 
     try {
-      const { data: result, error: insertError } = await supabase
-        .from('factura_productos' as any)
-        .insert(productoData)
-        .select()
-        .single();
+      setLoading(true);
+      setError(null);
+      
+      console.log(`🔍 [useSearchData] Searching in ${tableName} for: ${searchTerm}`);
+      
+      // Búsqueda básica por nombre, email, descripción
+      const { data: result, error: searchError } = await supabase
+        .from(tableName as any)
+        .select('*')
+        .or(`nombre.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,descripcion.ilike.%${searchTerm}%`)
+        .limit(10);
 
-      if (insertError) throw insertError;
-
-      if (result) {
-        setData(prev => [result, ...prev]);
-        toast.success('Producto de factura creado exitosamente');
-        return result;
-      }
-
-      return null;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al crear producto de factura';
-      toast.error(errorMessage);
-      console.error('Error creating factura producto:', err);
-      return null;
+      if (searchError) throw searchError;
+      
+      console.log(`✅ [useSearchData] Found ${result?.length || 0} results in ${tableName}`);
+      setResults(result || []);
+      
+    } catch (err: any) {
+      const errorMessage = err.message || `Error al buscar en ${tableName}`;
+      setError(errorMessage);
+      console.error(`Error searching ${tableName}:`, err);
+    } finally {
+      setLoading(false);
     }
-  }, [user?.id]);
-
-  const refetch = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+  }, [user?.id, tableName, searchTerm]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    const debounceTimer = setTimeout(() => {
+      search();
+    }, 300); // Debounce de 300ms
 
-  return {
-    data,
-    loading,
-    error,
-    refetch,
-    create
-  };
-}
+    return () => clearTimeout(debounceTimer);
+  }, [search]);
+
+  return { results, loading, error, search };
+};

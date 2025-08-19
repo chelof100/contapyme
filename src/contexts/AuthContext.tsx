@@ -17,6 +17,7 @@ interface UserProfile {
   email: string | null;
   role: 'admin' | 'contador' | 'usuario' | 'developer';
   avatar_url: string | null;
+  empresa_id?: string;
 }
 
 interface AuthContextType {
@@ -51,159 +52,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // FUNCIÓN SIMPLE - Sin RPC, sin dependencias circulares
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
       console.log('🔍 [AuthContext] Fetching profile for user:', userId);
-      console.log('🔍 [AuthContext] Using RPC function...');
       
-      // Usar RPC en lugar de consulta directa
-      const { data, error } = await (supabase as any)
-        .rpc('get_profile_data', { user_id: userId })
-        .single();
+      // CONSULTA DIRECTA SIMPLE - Sabemos que esta funciona perfectamente
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
       if (error) {
-        console.error('❌ Error fetching profile:', error);
+        console.error('❌ [AuthContext] Error fetching profile:', error);
         return null;
       }
 
       if (data) {
-        console.log('✅ [AuthContext] Profile fetched successfully via RPC:', data);
+        console.log('✅ [AuthContext] Profile fetched successfully:', data.role);
         return data;
       }
 
-      console.log('⚠️ [AuthContext] No profile found');
+      console.log('⚠️ [AuthContext] No profile found for user');
       return null;
     } catch (error) {
-      console.error('❌ Exception fetching profile:', error);
+      console.error('❌ [AuthContext] Exception fetching profile:', error);
       return null;
     }
   };
-
-  const createProfile = async (userId: string, email: string, userData?: any) => {
-    try {
-      console.log('Creating profile for user:', userId, email);
-      
-      // Verificar que existe configuración de empresa
-      const { data: configEmpresa, error: configError } = await supabase
-        .from('empresa')
-        .select('id, nombre')
-        .limit(1)
-        .single();
-
-      if (configError || !configEmpresa) {
-        console.error('Error fetching empresa or no config exists:', configError);
-        throw new Error('No hay empresa configurada en el sistema. Contacta al administrador.');
-      }
-
-      console.log('✅ Empresa encontrada:', configEmpresa.nombre);
-
-      const profileData = {
-        id: userId,
-        username: userData?.username || email.split('@')[0],
-        first_name: userData?.first_name || '',
-        last_name: userData?.last_name || '',
-        email: email,
-        role: 'developer' as const, // Usuario developer por defecto
-        avatar_url: null,
-        empresa_id: configEmpresa.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      console.log('Profile data to insert:', profileData);
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert(profileData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating profile:', error);
-        throw error;
-      }
-
-      console.log('✅ Profile created successfully:', data);
-      return data;
-    } catch (error) {
-      console.error('Exception creating profile:', error);
-      throw error;
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return;
-        
-        console.log('Auth state change:', event);
-        
-        if (session?.user) {
-          setSession(session);
-          
-          const extendedUser: ExtendedUser = {
-            ...session.user,
-            pyme_nombre: 'OnePyme',
-            permissions: []
-          };
-          setUser(extendedUser);
-          
-          // NO buscar perfil aquí - el signIn lo manejará
-          // Solo manejar el estado de sesión
-        } else {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-        }
-        
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    );
-
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!mounted) return;
-      
-      if (!session) {
-        setLoading(false);
-      }
-      // Si hay sesión, el onAuthStateChange la manejará
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
 
   const signUp = async (email: string, password: string, userData: { username: string; first_name: string; last_name: string }) => {
-    console.log('Attempting signup for:', email);
+    console.log('🔍 [AuthContext] Attempting signup for:', email);
+    setLoading(true);
     
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: userData
-      }
-    });
-    
-    if (error) {
-      console.error('Signup error:', error);
-      toast.error(`Error en registro: ${error.message}`);
-    } else {
-      console.log('Signup successful for:', email);
-      if (data.user && !data.user.email_confirmed_at) {
-        toast.success('Usuario registrado exitosamente. Si tienes configurado el email, revisa tu bandeja de entrada.');
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: userData.username,
+            first_name: userData.first_name,
+            last_name: userData.last_name,
+            role: 'usuario' // Rol por defecto
+          }
+        }
+      });
+      
+      if (error) {
+        console.error('❌ [AuthContext] Signup error:', error);
+        toast.error(error.message);
       } else {
-        toast.success('Usuario registrado y confirmado exitosamente.');
+        console.log('✅ [AuthContext] Signup successful for:', email);
+        if (data.user && !data.user.email_confirmed_at) {
+          toast.success('Registro exitoso. Revisa tu email para confirmar la cuenta.');
+        } else {
+          toast.success('Usuario registrado y confirmado exitosamente.');
+        }
       }
+      
+      return { error };
+    } catch (error: any) {
+      console.error('❌ [AuthContext] Exception during signup:', error);
+      toast.error(error.message || 'Error durante el registro');
+      return { error };
+    } finally {
+      setLoading(false);
     }
-    
-    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
@@ -219,80 +135,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('❌ [AuthContext] Signin error:', error);
         toast.error(error.message);
-        setLoading(false);
         return { error };
       }
       
       if (data.user) {
         console.log('✅ [AuthContext] Signin successful for:', email);
-        console.log('🔍 [AuthContext] User data received:', data.user.id);
+        console.log('🔍 [AuthContext] User ID:', data.user.id);
         
-        // Buscar perfil del usuario (UNA SOLA VEZ - solo aquí se ejecuta)
+        // FLUJO SIMPLIFICADO - Solo buscar perfil UNA VEZ
         const userProfile = await fetchProfile(data.user.id);
         
         if (userProfile) {
-          console.log('✅ [AuthContext] Profile found after login:', userProfile);
-          setProfile(userProfile);
+          console.log('✅ [AuthContext] Profile found after login:', userProfile.role);
           
-          // Actualizar usuario con datos del perfil
-          const extendedUser: ExtendedUser = {
+          // Actualizar estado del contexto
+          setProfile(userProfile);
+          setUser({
             ...data.user,
             pyme_nombre: 'OnePyme',
             permissions: getRolePermissions(userProfile.role)
-          };
-          setUser(extendedUser);
+          });
           setSession(data.session);
           
           console.log('✅ [AuthContext] Context state updated successfully');
+          toast.success(`¡Bienvenido${userProfile.first_name ? ', ' + userProfile.first_name : ''}!`);
         } else {
-          console.log('⚠️ [AuthContext] No profile found, creating one...');
-          
-          try {
-            const newProfile = await createProfile(data.user.id, data.user.email || '');
-            if (newProfile) {
-              setProfile(newProfile);
-              const extendedUser: ExtendedUser = {
-                ...data.user,
-                pyme_nombre: 'OnePyme',
-                permissions: getRolePermissions(newProfile.role)
-              };
-              setUser(extendedUser);
-              setSession(data.session);
-              console.log('✅ [AuthContext] New profile created successfully');
-            }
-          } catch (createError) {
-            // Si el error es 409, significa que el perfil ya existe
-            // Intentar obtenerlo de nuevo
-            console.log('⚠️ Profile might already exist, trying to fetch again...');
-            const existingProfile = await fetchProfile(data.user.id);
-            if (existingProfile) {
-              setProfile(existingProfile);
-              const extendedUser: ExtendedUser = {
-                ...data.user,
-                pyme_nombre: 'OnePyme',
-                permissions: getRolePermissions(existingProfile.role)
-              };
-              setUser(extendedUser);
-              setSession(data.session);
-              console.log('✅ [AuthContext] Existing profile loaded successfully');
-            }
-          }
+          console.log('⚠️ [AuthContext] No profile found - trigger should have created it');
+          // Para usuarios sin perfil, mostrar mensaje pero no fallar
+          toast.warning('Perfil no encontrado. Contacta al administrador.');
         }
       }
       
-      setLoading(false);
       return { error: null };
-    } catch (error) {
-      console.error('❌ Exception during signin:', error);
-      setLoading(false);
+      
+    } catch (error: any) {
+      console.error('❌ [AuthContext] Exception during signin:', error);
+      toast.error(error.message || 'Error durante el login');
       return { error };
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
-    console.log('Signing out user');
-    await supabase.auth.signOut();
-    toast.success('Sesión cerrada exitosamente');
+    console.log('🔍 [AuthContext] Signing out user');
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setProfile(null);
+      setSession(null);
+      toast.success('Sesión cerrada exitosamente');
+    } catch (error: any) {
+      console.error('❌ [AuthContext] Error during signout:', error);
+      toast.error('Error cerrando sesión');
+    }
   };
 
   const hasRole = (role: string): boolean => {
@@ -326,6 +222,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasPermission = (permission: string): boolean => {
     return user?.permissions?.includes(permission) || false;
   };
+
+  // EFECTO ULTRA-SIMPLIFICADO - SOLO INICIALIZACIÓN UNA VEZ
+  useEffect(() => {
+    let mounted = true;
+
+    const initializeAuth = async () => {
+      try {
+        console.log('🔍 [AuthContext] Initializing auth...');
+        
+        // Obtener sesión actual UNA SOLA VEZ
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ [AuthContext] Error getting session:', error);
+          if (mounted) setLoading(false);
+          return;
+        }
+
+        if (currentSession?.user && mounted) {
+          console.log('✅ [AuthContext] Initial session found for:', currentSession.user.email);
+          
+          // Buscar perfil del usuario de la sesión UNA SOLA VEZ
+          const userProfile = await fetchProfile(currentSession.user.id);
+          
+          if (userProfile && mounted) {
+            console.log('✅ [AuthContext] Initial profile loaded:', userProfile.role);
+            setProfile(userProfile);
+            setUser({
+              ...currentSession.user,
+              pyme_nombre: 'OnePyme',
+              permissions: getRolePermissions(userProfile.role)
+            });
+            setSession(currentSession);
+          } else if (mounted) {
+            console.log('⚠️ [AuthContext] No profile found for session user');
+          }
+        } else {
+          console.log('🔍 [AuthContext] No initial session found');
+        }
+        
+        if (mounted) {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ [AuthContext] Error in initialization:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // SOLO INICIALIZACIÓN - SIN LISTENERS
+    initializeAuth();
+
+    // Cleanup simple
+    return () => {
+      mounted = false;
+    };
+  }, []); // Sin dependencias para evitar loops
 
   const value = {
     user, 
