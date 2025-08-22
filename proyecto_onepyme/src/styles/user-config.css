@@ -1,0 +1,195 @@
+/* Estilos para configuraciones de usuario */
+
+/* Densidad de interfaz */
+.density-compact {
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 0.75rem;
+  --spacing-lg: 1rem;
+  --spacing-xl: 1.25rem;
+}
+
+.density-comfortable {
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 0.75rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}
+
+.density-spacious {
+  --spacing-xs: 0.75rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 2.5rem;
+}
+
+/* Aplicar espaciado a elementos comunes */
+.density-compact .p-2 { padding: var(--spacing-xs) !important; }
+.density-compact .p-3 { padding: var(--spacing-sm) !important; }
+.density-compact .p-4 { padding: var(--spacing-md) !important; }
+.density-compact .p-6 { padding: var(--spacing-lg) !important; }
+
+.density-comfortable .p-2 { padding: var(--spacing-sm) !important; }
+.density-comfortable .p-3 { padding: var(--spacing-md) !important; }
+.density-comfortable .p-4 { padding: var(--spacing-lg) !important; }
+.density-comfortable .p-6 { padding: var(--spacing-xl) !important; }
+
+.density-spacious .p-2 { padding: var(--spacing-md) !important; }
+.density-spacious .p-3 { padding: var(--spacing-lg) !important; }
+.density-spacious .p-4 { padding: var(--spacing-xl) !important; }
+.density-spacious .p-6 { padding: 2.5rem !important; }
+
+/* Animaciones */
+.no-animations * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Tema oscuro */
+[data-theme="dark"] {
+  --background: #0f0f0f;
+  --foreground: #ffffff;
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+  --popover: #1a1a1a;
+  --popover-foreground: #ffffff;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #374151;
+  --secondary-foreground: #ffffff;
+  --muted: #374151;
+  --muted-foreground: #9ca3af;
+  --accent: #374151;
+  --accent-foreground: #ffffff;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #374151;
+  --input: #374151;
+  --ring: #3b82f6;
+}
+
+/* Aplicar tema oscuro al body y elementos principales */
+[data-theme="dark"] body {
+  background-color: #0f0f0f !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .bg-background {
+  background-color: #0f0f0f !important;
+}
+
+[data-theme="dark"] .bg-card {
+  background-color: #1a1a1a !important;
+}
+
+[data-theme="dark"] .text-foreground {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .text-card-foreground {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .border {
+  border-color: #374151 !important;
+}
+
+[data-theme="dark"] .bg-muted {
+  background-color: #374151 !important;
+}
+
+[data-theme="dark"] .text-muted-foreground {
+  color: #9ca3af !important;
+}
+
+/* Tema claro */
+[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #0f0f0f;
+  --card: #ffffff;
+  --card-foreground: #0f0f0f;
+  --popover: #ffffff;
+  --popover-foreground: #0f0f0f;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #0f0f0f;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #0f0f0f;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #3b82f6;
+}
+
+/* Aplicar tema claro al body y elementos principales */
+[data-theme="light"] body {
+  background-color: #ffffff !important;
+  color: #0f0f0f !important;
+}
+
+[data-theme="light"] .bg-background {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] .bg-card {
+  background-color: #ffffff !important;
+}
+
+[data-theme="light"] .text-foreground {
+  color: #0f0f0f !important;
+}
+
+[data-theme="light"] .text-card-foreground {
+  color: #0f0f0f !important;
+}
+
+[data-theme="light"] .border {
+  border-color: #e5e7eb !important;
+}
+
+[data-theme="light"] .bg-muted {
+  background-color: #f3f4f6 !important;
+}
+
+[data-theme="light"] .text-muted-foreground {
+  color: #6b7280 !important;
+}
+
+/* Estilos adicionales para elementos específicos */
+[data-theme="dark"] .bg-gray-50 {
+  background-color: #1a1a1a !important;
+}
+
+[data-theme="dark"] .text-gray-600 {
+  color: #9ca3af !important;
+}
+
+[data-theme="dark"] .text-gray-500 {
+  color: #6b7280 !important;
+}
+
+[data-theme="dark"] .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+[data-theme="dark"] .text-blue-700 {
+  color: #3b82f6 !important;
+}
+
+[data-theme="dark"] .text-blue-800 {
+  color: #2563eb !important;
+}
+
+[data-theme="dark"] .bg-blue-50 {
+  background-color: #1e3a8a !important;
+}
+
+[data-theme="dark"] .border-blue-200 {
+  border-color: #1e40af !important;
+}
