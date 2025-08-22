@@ -50,7 +50,12 @@ interface User {
 }
 
 const UsuariosAdmin = () => {
-  const { isAdmin, user } = useAuth();
+  const { user, profile } = useAuth();
+  
+  // Función local para verificar si es admin
+  const isAdmin = () => {
+    return profile?.role === 'admin' || profile?.role === 'developer';
+  };
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -79,12 +84,12 @@ const UsuariosAdmin = () => {
   });
 
   useEffect(() => {
-    if (isAdmin()) {
+    if (profile?.role === 'admin' || profile?.role === 'developer') {
       fetchUsers();
     } else {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, [profile?.role]);
 
   // Cargar usuarios
   const fetchUsers = async () => {

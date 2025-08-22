@@ -3,12 +3,9 @@ import { supabase } from '@/lib/supabase';
 export interface UserAction {
   id: string;
   usuario_id: string;
-  action_type: 'page_view' | 'create' | 'edit' | 'delete' | 'export' | 'import';
-  module: string;
-  page: string;
+  action: 'page_view' | 'create' | 'edit' | 'delete' | 'export' | 'import';
+  details: any;
   created_at: string;
-  session_id: string;
-  metadata?: any;
 }
 
 export interface UserPreference {
@@ -44,7 +41,7 @@ class UserAnalyticsService {
 
   // Registrar una acción del usuario
   async trackAction(
-    actionType: UserAction['action_type'],
+    actionType: UserAction['action'],
     module: string,
     page: string,
     metadata?: any
@@ -55,10 +52,9 @@ class UserAnalyticsService {
 
       const action: Omit<UserAction, 'id'> = {
         usuario_id: user.id,
-        accion: actionType, // ✅ Campo correcto: 'accion' no 'action_type'
-        tabla_afectada: module, // ✅ Campo correcto: 'tabla_afectada' no 'module'
-        registro_id: null, // ✅ Campo correcto: 'registro_id' (null por ahora)
-        detalles: { // ✅ Campo correcto: 'detalles' no 'metadata'
+        action: actionType,
+        details: {
+          module,
           page,
           session_id: this.sessionId,
           metadata
@@ -130,14 +126,16 @@ class UserAnalyticsService {
 
     actions.forEach(action => {
       // Contar por módulo
-      actionsByModule[action.module] = (actionsByModule[action.module] || 0) + 1;
+      const module = action.details?.module || 'unknown';
+      actionsByModule[module] = (actionsByModule[module] || 0) + 1;
       
       // Contar por página
-      actionsByPage[action.page] = (actionsByPage[action.page] || 0) + 1;
+      const page = action.details?.page || 'unknown';
+      actionsByPage[page] = (actionsByPage[page] || 0) + 1;
       
       // Contar vistas de página
-      if (action.action_type === 'page_view') {
-        pageCounts[action.page] = (pageCounts[action.page] || 0) + 1;
+      if (action.action === 'page_view') {
+        pageCounts[page] = (pageCounts[page] || 0) + 1;
       }
     });
 
@@ -353,11 +351,11 @@ class UserAnalyticsService {
          const description = this.getActionDescription(action);
         
         return {
-          type: action.module,
+          type: action.details?.module || 'unknown',
           description,
           time: timeAgo,
           icon: this.getActionIcon(action),
-          action_type: action.action_type
+          action_type: action.action
         };
       });
     } catch (error) {
@@ -388,8 +386,8 @@ class UserAnalyticsService {
       'import': 'importó'
     };
 
-    const moduleName = moduleNames[action.module] || action.module;
-    const actionName = actionNames[action.action_type] || action.action_type;
+    const moduleName = moduleNames[action.details?.module] || action.details?.module || 'unknown';
+    const actionName = actionNames[action.action] || action.action;
 
     return `${moduleName} ${actionName}`;
   }
@@ -407,7 +405,7 @@ class UserAnalyticsService {
       'recetas': 'ChefHat'
     };
 
-    return iconMap[action.module] || 'Activity';
+    return iconMap[action.details?.module] || 'Activity';
   }
 
   // Calcular tiempo transcurrido
