@@ -20,7 +20,12 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   // 🔧 TEMPORAL: Comentando React.StrictMode para verificar si es la causa del problema useNavigate
   // <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true
+        }}
+      >
         <App />
         <Toaster 
           position="top-right"

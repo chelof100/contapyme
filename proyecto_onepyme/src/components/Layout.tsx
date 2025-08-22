@@ -49,12 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [expandedSections, setExpandedSections] = useState<string[]>(['contabilidad', 'crm', 'admin']);
 
   // Debug: Log valores para identificar el problema
-  console.log('🔍 [Layout] Debug values:', {
-    recetasEnabled: recetasEnabled,
-    recetasEnabledType: typeof recetasEnabled,
-    profile: profile,
-    userRole: profile?.role
-  });
+  // Debug logs removidos para reducir verbosidad
 
   // Función para verificar si el usuario es admin
   const isAdmin = () => {

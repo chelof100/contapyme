@@ -157,26 +157,17 @@ const ensureValidSession = async (): Promise<Session | null> => {
 const fetchUserProfile = async (userId: string): Promise<Profile | null> => {
   try {
     console.log(`🔍 [AuthContext] Fetching profile for user: ${userId}`)
-    console.log(`🔍 [AuthContext] Step 1: Starting profile fetch...`)
     
-    // Verificar que supabase esté disponible
-    console.log(`🔍 [AuthContext] Step 2: Checking supabase client...`)
     if (!supabase) {
       console.error('❌ [AuthContext] Supabase client is undefined!')
       return null
     }
-    console.log(`✅ [AuthContext] Supabase client is available`)
     
-    // Verificar que la tabla profiles existe
-    console.log(`🔍 [AuthContext] Step 3: Building query...`)
     const query = supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single()
-    
-    console.log(`🔍 [AuthContext] Step 4: Executing query with timeout...`)
-    console.log(`🔍 [AuthContext] Query details: from('profiles').select('*').eq('id', '${userId}').single()`)
     
     // Agregar timeout de 10 segundos para evitar que se cuelgue
     const queryPromise = query
@@ -186,10 +177,6 @@ const fetchUserProfile = async (userId: string): Promise<Profile | null> => {
     
     const result = await Promise.race([queryPromise, timeoutPromise])
     const { data, error } = result
-    
-    console.log(`🔍 [AuthContext] Step 5: Query completed!`)
-    console.log(`🔍 [AuthContext] Data received:`, data)
-    console.log(`🔍 [AuthContext] Error received:`, error)
     
     if (error) {
       if (error.code === 'PGRST116') {
@@ -204,13 +191,10 @@ const fetchUserProfile = async (userId: string): Promise<Profile | null> => {
     return data
     
   } catch (error) {
-    console.error('❌ [AuthContext] Error fetching profile:', error)
-    console.error('❌ [AuthContext] Error details:', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint
-    })
+    // Solo mostrar errores que no sean timeout o tabla inexistente
+    if (!error.message.includes('timeout') && !error.message.includes('does not exist')) {
+      console.error('❌ [AuthContext] Error fetching profile:', error)
+    }
     return null
   }
 }

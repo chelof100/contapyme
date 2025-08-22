@@ -61,7 +61,7 @@ export const supabase = createClient<Database>(finalUrl, finalKey, {
     flowType: 'pkce',
     storage: window.localStorage,
     storageKey: 'sb-onepyme-auth-token',
-    debug: import.meta.env.DEV
+    debug: false
   },
   global: {
     headers: {

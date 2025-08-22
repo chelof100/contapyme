@@ -8,7 +8,7 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--project-ref=xglewrlsvdqenowithal",
-        "--access-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhnbGV3cmxzdmRxZW5vd2l0aGFsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTY0MzA4NSwiZXhwIjoyMDcxMjE5MDg1fQ.EJwJPBuf-essuZYKfO1onu6UByrD3ijsJPuC3DOuXH0"
+        "--access-token=sbp_123a79838bd5dac775084b7320d0189a8f3457c5
       ]
     }
   }

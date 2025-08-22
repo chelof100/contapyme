@@ -68,7 +68,10 @@ class UserAnalyticsService {
 
       await supabase.from('user_actions').insert(action);
     } catch (error) {
-      console.error('Error tracking user action:', error);
+      // Silenciar errores de tabla inexistente hasta que se apliquen migraciones
+      if (error.message && !error.message.includes('does not exist')) {
+        console.error('Error tracking user action:', error);
+      }
     }
   }
 
@@ -95,11 +98,20 @@ class UserAnalyticsService {
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        // Silenciar errores de tabla inexistente
+        if (error.message && error.message.includes('does not exist')) {
+          return this.getDefaultStats();
+        }
+        throw error;
+      }
 
       return this.processUserStats(actions || []);
     } catch (error) {
-      console.error('Error getting user stats:', error);
+      // Silenciar errores de tabla inexistente
+      if (error.message && !error.message.includes('does not exist')) {
+        console.error('Error getting user stats:', error);
+      }
       return this.getDefaultStats();
     }
   }

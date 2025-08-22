@@ -54,7 +54,10 @@ function useTableData(tableName: string) {
         throw queryError;
       }
       
-      console.log(`✅ [useTableData] Successfully fetched ${result?.length || 0} records from ${tableName}`);
+      // Solo mostrar logs para tablas con datos o errores
+      if (result && result.length > 0) {
+        console.log(`✅ [useTableData] Successfully fetched ${result.length} records from ${tableName}`);
+      }
       setData(result || []);
       
     } catch (err: any) {
@@ -282,7 +285,7 @@ export const useMovimientosStock = () => {
           productos:producto_id (
             nombre,
             descripcion,
-            codigo
+            sku
           )
         `)
         .order('created_at', { ascending: false });

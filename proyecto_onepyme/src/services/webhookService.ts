@@ -459,14 +459,19 @@ class WebhookService {
     return this.makeRequest(this.config.endpoints.facturaRecepcion, data);
   }
 
+// ... (the rest of the file is unchanged until aync crearOrdenCompra)
+
   // Órdenes de compra con validación
-  async crearOrdenCompra(data: any): Promise<WebhookResponse> {
+  // Órdenes de compra con validación
+  async crearOrdenCompra(data: N8nOrdenCompra): Promise<WebhookResponse> {
     return this.makeRequest(this.config.endpoints.ordenCompra, data, {
       validate: true,
       schema: ordenCompraSchema,
       priority: 'high'
     });
   }
+
+// ... (the rest of the file is unchanged)
 
   // Registro de pagos con validación
   async registrarPago(data: any): Promise<WebhookResponse> {

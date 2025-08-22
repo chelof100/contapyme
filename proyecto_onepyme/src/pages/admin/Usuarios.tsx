@@ -51,9 +51,6 @@ interface User {
 
 const UsuariosAdmin = () => {
   const { isAdmin, user } = useAuth();
-  
-
-  
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -81,18 +78,13 @@ const UsuariosAdmin = () => {
     role: 'usuario',
   });
 
-  // Verificar permisos
-  if (!isAdmin()) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Shield className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-4 text-lg font-medium">Acceso denegado</h3>
-          <p className="text-gray-500">Solo los administradores pueden acceder a esta página.</p>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (isAdmin()) {
+      fetchUsers();
+    } else {
+      setLoading(false);
+    }
+  }, [isAdmin]);
 
   // Cargar usuarios
   const fetchUsers = async () => {
@@ -122,6 +114,19 @@ const UsuariosAdmin = () => {
       setLoading(false);
     }
   };
+
+  // Verificar permisos
+  if (!isAdmin()) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Shield className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium">Acceso denegado</h3>
+          <p className="text-gray-500">Solo los administradores pueden acceder a esta página.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Reset password de usuario
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -281,10 +286,6 @@ const UsuariosAdmin = () => {
     };
     return permissions[role as keyof typeof permissions] || [];
   };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
 
   if (loading) {
     return (
